@@ -50,9 +50,11 @@
         "awayParticipantId": { "type": "string" },
         "homeScore": { "type": "integer" },
         "awayScore": { "type": "integer" },
-        "status": { "type": "string", "enum": ["scheduled", "completed"] },
+        "status": { "type": "string", "enum": ["scheduled", "reported", "completed"] },
         "stage": { "type": "string", "enum": ["group", "round_of_32", "round_of_16", "quarter_final", "semi_final", "final"] },
         "group": { "type": "string", "maxLength": 1 },
+        "reportedBy": { "type": "string" },
+        "screenshotUrl": { "type": "string" },
         "events": {
           "type": "array",
           "items": {
@@ -69,6 +71,17 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["homeParticipantId", "awayParticipantId", "status", "stage"]
+    },
+    "message": {
+      "title": "Match Message",
+      "description": "A chat message between match participants",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "text": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "text", "createdAt"]
     },
     "user": {
       "title": "User Profile",
@@ -117,6 +130,10 @@
     "/tournaments/{tournamentId}/matches/{matchId}": {
       "schema": "match",
       "description": "Matches within a specific tournament"
+    },
+    "/tournaments/{tournamentId}/matches/{matchId}/messages/{messageId}": {
+      "schema": "message",
+      "description": "Chat messages for a specific match"
     },
     "/admins/{userId}": {
       "schema": "admin",

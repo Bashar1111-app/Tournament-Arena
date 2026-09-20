@@ -15,6 +15,21 @@
   }
 }
 
+@layer utilities {
+  @keyframes rgb-flow {
+    0% { border-color: rgba(245, 158, 11, 0.5); }
+    33% { border-color: rgba(59, 130, 246, 0.5); }
+    66% { border-color: rgba(16, 185, 129, 0.5); }
+    100% { border-color: rgba(245, 158, 11, 0.5); }
+  }
+
+  .rgb-border {
+    border-width: 1px;
+    border-style: solid;
+    animation: rgb-flow 60s linear infinite;
+  }
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }

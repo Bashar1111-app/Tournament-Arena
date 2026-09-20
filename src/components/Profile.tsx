@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { UserCircle, Trophy, Target, Shield, Clock, LogOut, Facebook, Phone, Mail, Fingerprint, Save, Edit3, Lock, Bell, Star, Zap, Camera, Loader2, Gamepad2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { doc, getDoc, setDoc, addDoc, collection, serverTimestamp, updateDoc, query, where, getDocs, collectionGroup } from 'firebase/firestore';
+import { doc, setDoc, addDoc, collection, serverTimestamp, updateDoc, query, where, collectionGroup, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import imageCompression from 'browser-image-compression';
 
@@ -101,38 +101,50 @@ export function Profile({ onSelectTournament }: ProfileProps) {
   const [joinedTournaments, setJoinedTournaments] = useState<any[]>([]);
 
   useEffect(() => {
-    async function fetchProfileData() {
-      if (!user) return;
+    if (!user) return;
 
-      try {
-        // Fetch Publisher Stats if role is publisher
-        if (userData?.role === 'publisher') {
-          const q = query(collection(db, 'tournaments'), where('createdBy', '==', user.uid));
-          const snapshot = await getDocs(q);
-          setPublishedCount(snapshot.size);
-          setMyTournaments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        }
-
-        // Fetch Joined Tournaments for Players (also for publishers if they joined)
-        const joinedQ = query(collectionGroup(db, 'participants'), where('userId', '==', user.uid));
-        const joinedSnapshot = await getDocs(joinedQ);
-        
-        // Get tournamentId from the parent document reference
-        const tournamentIds = Array.from(new Set(joinedSnapshot.docs.map(doc => doc.ref.parent.parent?.id).filter(id => !!id)));
-        
-        if (tournamentIds.length > 0) {
-          // Fetch tournament details for joined tournaments (limit to first 10 for profile preview)
-          const tourneysQ = query(collection(db, 'tournaments'), where('__name__', 'in', tournamentIds.slice(0, 10)));
-          const tourneysSnapshot = await getDocs(tourneysQ);
-          setJoinedTournaments(tourneysSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        } else {
-          setJoinedTournaments([]);
-        }
-      } catch (error) {
-        console.error("Error fetching profile data:", error);
+    // 1. User Profile Sync
+    const profileUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
+      if (snapshot.exists()) {
+        setProfileData(snapshot.data() as UserProfileData);
       }
+      setLoading(false);
+    }, (err) => {
+      console.warn("Profile sync listener error:", err);
+      setLoading(false);
+    });
+
+    // 2. Publisher/Participant Stats & Tournaments Sync
+    let tournamentsUnsubscribe: (() => void) | null = null;
+    let joinedUnsubscribe: (() => void) | null = null;
+
+    if (userData?.role === 'publisher') {
+      const q = query(collection(db, 'tournaments'), where('createdBy', '==', user.uid));
+      tournamentsUnsubscribe = onSnapshot(q, (snapshot) => {
+        setPublishedCount(snapshot.size);
+        setMyTournaments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      }, (err) => console.warn("Publisher tournaments listener error:", err));
     }
-    fetchProfileData();
+
+    const joinedQ = query(collectionGroup(db, 'participants'), where('userId', '==', user.uid));
+    joinedUnsubscribe = onSnapshot(joinedQ, (joinedSnapshot) => {
+      const tournamentIds = Array.from(new Set(joinedSnapshot.docs.map(doc => doc.ref.parent.parent?.id).filter(id => !!id)));
+      
+      if (tournamentIds.length > 0) {
+        const tourneysQ = query(collection(db, 'tournaments'), where('__name__', 'in', tournamentIds.slice(0, 10)));
+        onSnapshot(tourneysQ, (tourneysSnapshot) => {
+          setJoinedTournaments(tourneysSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        }, (err) => console.warn("Joined tournaments details listener error:", err));
+      } else {
+        setJoinedTournaments([]);
+      }
+    }, (err) => console.warn("Joined tournaments mapping listener error:", err));
+
+    return () => {
+      profileUnsubscribe();
+      if (tournamentsUnsubscribe) tournamentsUnsubscribe();
+      if (joinedUnsubscribe) joinedUnsubscribe();
+    };
   }, [user, userData]);
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -162,24 +174,6 @@ export function Profile({ onSelectTournament }: ProfileProps) {
       setIsUploading(false);
     }
   };
-
-  useEffect(() => {
-    async function fetchProfile() {
-      if (!user) return;
-      try {
-        const docRef = doc(db, 'users', user.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setProfileData(docSnap.data() as UserProfileData);
-        }
-      } catch (error) {
-        console.error("Error fetching profile:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchProfile();
-  }, [user]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,7 +211,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
       className="space-y-8 pb-20"
     >
       {/* Ultra-Modern Hero Profile Section */}
-      <div className="relative overflow-hidden rounded-[56px] bg-gradient-to-br from-[#0B1221] via-[#111827] to-[#0B1221] border border-white/10 p-12 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+      <div className="relative overflow-hidden rounded-[56px] bg-gradient-to-br from-[#0B1221] via-[#111827] to-[#0B1221] border border-white/10 p-12 shadow-[0_0_50px_rgba(0,0,0,0.5)] rgb-border">
         {/* Animated Background Glow */}
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-amber-500/10 blur-[120px] rounded-full pointer-events-none animate-pulse"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#38bdf8]/10 blur-[120px] rounded-full pointer-events-none animate-pulse" style={{ animationDelay: '1s' }}></div>
@@ -310,7 +304,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
       {/* Bento Grid Stats Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Large Stat Box */}
-        <div className="md:col-span-2 relative overflow-hidden rounded-[48px] bg-[#111827] border border-white/5 p-10 group">
+        <div className="md:col-span-2 relative overflow-hidden rounded-[48px] bg-[#111827] border border-white/5 p-10 group rgb-border">
           <div className="absolute top-0 right-0 p-10 opacity-[0.03] group-hover:rotate-12 transition-transform duration-700">
             {userData?.role === 'publisher' ? <Trophy className="w-40 h-40 text-amber-500" /> : <Trophy className="w-40 h-40 text-amber-500" />}
           </div>
@@ -348,7 +342,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
         </div>
 
         {/* Vertical Stat Box */}
-        <div className="relative overflow-hidden rounded-[48px] bg-gradient-to-b from-amber-500 to-amber-600 p-10 flex flex-col justify-between group">
+        <div className="relative overflow-hidden rounded-[48px] bg-gradient-to-b from-amber-500 to-amber-600 p-10 flex flex-col justify-between group rgb-border">
           <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:scale-125 transition-transform duration-700">
             <Zap className="w-20 h-20 text-white fill-white" />
           </div>
@@ -362,7 +356,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
 
       {/* Infrastructure & Security Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="rounded-[48px] bg-[#111827] border border-white/5 p-10 space-y-8">
+        <div className="rounded-[48px] bg-[#111827] border border-white/5 p-10 space-y-8 rgb-border">
           <div className="flex items-center justify-between">
             <h3 className="text-[11px] font-black text-[#38bdf8] uppercase tracking-[0.4em] italic">Neural Links</h3>
             <div className="px-3 py-1 bg-[#38bdf8]/10 rounded-lg text-[9px] font-black text-[#38bdf8] italic uppercase">Secure</div>
@@ -395,7 +389,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
           </div>
         </div>
 
-        <div className="rounded-[48px] bg-[#111827] border border-white/5 p-10 flex flex-col justify-between group">
+        <div className="rounded-[48px] bg-[#111827] border border-white/5 p-10 flex flex-col justify-between group rgb-border">
           <div className="space-y-2">
             <h3 className="text-[11px] font-black text-red-500 uppercase tracking-[0.4em] italic">System Core</h3>
             <p className="text-zinc-500 text-[13px] italic opacity-80 leading-relaxed">Manage your active arena credentials and force-terminate the current neural synchronization across all nodes.</p>
@@ -414,7 +408,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
       </div>
 
       {isAdmin && (
-        <div className="relative overflow-hidden rounded-[56px] bg-[#111827] border border-amber-500/10 p-12 space-y-10 shadow-[0_0_40px_rgba(245,158,11,0.05)]">
+        <div className="relative overflow-hidden rounded-[56px] bg-[#111827] border border-amber-500/10 p-12 space-y-10 shadow-[0_0_40px_rgba(245,158,11,0.05)] rgb-border">
           <div className="absolute top-0 right-0 p-12 opacity-[0.02]">
             <Bell className="w-64 h-64 text-amber-500" />
           </div>
@@ -456,7 +450,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
                   animate={{ opacity: 1, y: 0 }}
                   whileHover={{ y: -5 }}
                   onClick={() => onSelectTournament?.(t.id)}
-                  className="bg-[#111827] border border-white/5 rounded-[40px] p-8 hover:border-amber-500/30 transition-all group shadow-xl cursor-pointer"
+                  className="bg-[#111827] border border-white/5 rounded-[40px] p-8 hover:border-amber-500/30 transition-all group shadow-xl cursor-pointer rgb-border"
                 >
                   <div className="flex justify-between items-start mb-8">
                     <div className="px-4 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full">
@@ -508,7 +502,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
                   animate={{ opacity: 1, y: 0 }}
                   whileHover={{ y: -5 }}
                   onClick={() => onSelectTournament?.(t.id)}
-                  className="bg-[#111827] border border-white/5 rounded-[40px] p-8 hover:border-[#38bdf8]/30 transition-all group shadow-xl cursor-pointer"
+                  className="bg-[#111827] border border-white/5 rounded-[40px] p-8 hover:border-[#38bdf8]/30 transition-all group shadow-xl cursor-pointer rgb-border"
                 >
                   <div className="flex justify-between items-start mb-8">
                     <div className="px-4 py-1.5 bg-[#38bdf8]/10 border border-[#38bdf8]/20 rounded-full">

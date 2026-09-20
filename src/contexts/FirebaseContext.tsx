@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, getAdditionalUserInfo } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
-import { doc, getDoc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 
 interface FirebaseContextType {
   user: User | null;
@@ -21,56 +21,74 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    let userUnsubscribe: any = null;
+    let userUnsubscribe: (() => void) | null = null;
+    let adminUnsubscribe: (() => void) | null = null;
 
-    const authUnsubscribe = onAuthStateChanged(auth, async (user) => {
+    const authUnsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       
-      if (userUnsubscribe) userUnsubscribe();
+      // Clear previous listeners
+      if (userUnsubscribe) {
+        userUnsubscribe();
+        userUnsubscribe = null;
+      }
+      if (adminUnsubscribe) {
+        adminUnsubscribe();
+        adminUnsubscribe = null;
+      }
 
       if (user) {
-        // Listen to user profile data in real-time
+        // 1. User Profile Listener
         userUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (doc) => {
           if (doc.exists()) {
             setUserData(doc.data());
           }
+          setLoading(false);
+        }, (err) => {
+          console.error('User data listener error:', err);
+          setLoading(false);
         });
 
-        // Check if user is admin
+        // 2. Admin Status Listener
         if (user.email === 'sperkplay@gmail.com') {
           setIsAdmin(true);
         } else {
-          try {
-            const adminDoc = await getDoc(doc(db, 'admins', user.uid));
-            setIsAdmin(adminDoc.exists());
-          } catch (e) {
-            console.error('Error checking admin status', e);
-            setIsAdmin(false);
-          }
+          adminUnsubscribe = onSnapshot(doc(db, 'admins', user.uid), (doc) => {
+            setIsAdmin(doc.exists());
+          }, (err) => {
+            console.warn('Admin check listener error:', err);
+          });
         }
       } else {
         setUserData(null);
         setIsAdmin(false);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => {
       authUnsubscribe();
       if (userUnsubscribe) userUnsubscribe();
+      if (adminUnsubscribe) adminUnsubscribe();
     };
   }, []);
 
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
   const login = async (role: 'player' | 'publisher') => {
+    if (isLoggingIn) return;
+    setIsLoggingIn(true);
+
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
     try {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
+      const additionalInfo = getAdditionalUserInfo(result);
       
-      const userRef = doc(db, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
-      
-      if (!userSnap.exists()) {
+      if (additionalInfo?.isNewUser) {
+        const userRef = doc(db, 'users', user.uid);
         await setDoc(userRef, {
           email: user.email,
           gameName: user.displayName || 'LEGEND',
@@ -81,9 +99,14 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
         });
       }
     } catch (error: any) {
-      if (error.code !== 'auth/popup-closed-by-user') {
+      if (error.code === 'auth/cancelled-popup-request') {
+        console.warn('Login request was cancelled by a newer request.');
+      } else if (error.code !== 'auth/popup-closed-by-user') {
         console.error('Login failed', error);
+        alert(`Login failed: ${error.message}`);
       }
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 

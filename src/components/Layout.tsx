@@ -67,9 +67,9 @@ export function Layout({ children, onBack, isDetail, activeTab, setActiveTab, on
   ] as const;
 
   return (
-    <div className="min-h-screen bg-[#0B1221] flex flex-col font-sans">
+    <div className="min-h-screen bg-[#050810] flex flex-col font-sans">
       {/* Sophisticated Header */}
-      <header className="sticky top-0 w-full z-50 bg-[#0B1221]/80 backdrop-blur-xl border-b border-white/5 shadow-lg">
+      <header className="sticky top-0 w-full z-50 bg-[#050810]/80 backdrop-blur-xl border-b border-white/5 shadow-lg">
         <div className="max-w-7xl mx-auto h-16 px-4 sm:px-6 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-shrink">
             {isDetail && activeTab === 'arena' && (
@@ -123,7 +123,7 @@ export function Layout({ children, onBack, isDetail, activeTab, setActiveTab, on
             ) : (
               <button 
                 onClick={() => setIsLoginModalOpen(true)}
-                className="px-4 sm:px-6 py-2 sm:py-2.5 bg-amber-500 text-black rounded-lg sm:rounded-xl font-black text-[10px] sm:text-[11px] uppercase tracking-[0.1em] sm:tracking-[0.2em] shadow-lg shadow-amber-500/20 transition-all hover:bg-amber-400 active:scale-95 italic"
+                className="px-4 sm:px-6 py-2 sm:py-2.5 bg-amber-500 text-black rounded-lg sm:rounded-xl font-black text-[10px] sm:text-[11px] uppercase tracking-[0.1em] sm:tracking-[0.2em] shadow-lg shadow-amber-500/20 transition-all hover:bg-amber-400 active:scale-95 italic rgb-border"
               >
                 Login
               </button>

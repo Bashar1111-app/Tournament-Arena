@@ -46,7 +46,7 @@ function TournamentCard({ tournament, onSelect }: { tournament: Tournament, onSe
       layoutId={tournament.id}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="relative bg-[#111827] border border-white/5 rounded-[32px] p-8 shadow-2xl overflow-hidden group hover:border-amber-500/20 transition-all"
+      className="relative bg-[#111827] rgb-border border-white/5 rounded-[32px] p-8 shadow-2xl overflow-hidden group hover:border-amber-500/20 transition-all"
     >
       {/* Background Icon Watermark */}
       <div className="absolute bottom-[-20px] right-[-10px] opacity-[0.03] group-hover:scale-110 transition-transform duration-700 pointer-events-none">
@@ -232,7 +232,7 @@ export function TournamentList({ onSelectTournament }: TournamentListProps) {
   return (
     <div className="space-y-6">
       {/* Telemetry Status Bar */}
-      <div className="flex items-center justify-between py-3 px-6 rounded-[24px] bg-[#111827] border border-white/5 backdrop-blur-sm">
+      <div className="flex items-center justify-between py-3 px-6 rounded-[24px] bg-[#111827] rgb-border border-white/5 backdrop-blur-sm">
         <div className="flex items-center gap-2.5">
           <span className="w-2 h-2 rounded-full bg-[#38bdf8] animate-pulse shadow-[0_0_8px_rgba(56,189,248,0.5)]"></span>
           <span className="text-[10px] font-black text-[#38bdf8] tracking-[0.2em] uppercase italic">Arena Protocol v4.0 Active</span>
@@ -251,7 +251,7 @@ export function TournamentList({ onSelectTournament }: TournamentListProps) {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all italic border ${
+              className={`px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all italic border rgb-border ${
                 filter === f 
                   ? 'bg-white text-black border-white shadow-xl scale-105' 
                   : 'bg-white/5 text-zinc-500 border-white/5 hover:text-white'

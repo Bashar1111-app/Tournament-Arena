@@ -2,9 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { collection, doc, onSnapshot, query, setDoc, serverTimestamp, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { db, OperationType, handleFirestoreError } from '../lib/firebase';
 import { useFirebase } from '../contexts/FirebaseContext';
-import { Users, Plus, Trophy, Trash2, Edit3, X, Save, UserPlus, ChevronRight, LayoutGrid, GitMerge, ListOrdered, Tv, Shield, Zap, CheckCircle, Clock, FileText, ExternalLink } from 'lucide-react';
+import { Users, Plus, Trophy, Trash2, Edit3, X, Save, UserPlus, ChevronRight, LayoutGrid, GitMerge, ListOrdered, Tv, Shield, Zap, CheckCircle, Clock, FileText, ExternalLink, MessageSquare, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
+
+import { MatchChat } from './MatchChat';
+import { ResultReportModal } from './ResultReportModal';
 
 interface Participant {
   id: string;
@@ -35,9 +38,11 @@ interface Match {
   awayParticipantId: string;
   homeScore?: number;
   awayScore?: number;
-  status: 'scheduled' | 'completed';
+  status: 'scheduled' | 'reported' | 'completed';
   stage: 'group' | 'round_of_32' | 'round_of_16' | 'quarter_final' | 'semi_final' | 'final';
   group?: string;
+  reportedBy?: string;
+  screenshotUrl?: string;
   updatedAt?: any;
 }
 
@@ -63,6 +68,9 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [activeTab, setActiveTab] = useState<'group' | 'knockout' | 'players' | 'admin' | 'requests' | 'rules'>(initialTab || 'group');
+  const [activeMatchChat, setActiveMatchChat] = useState<{ matchId: string, homeName: string, awayName: string } | null>(null);
+  const [reportingMatch, setReportingMatch] = useState<{ matchId: string, homeName: string, awayName: string } | null>(null);
+  const [viewingScreenshot, setViewingScreenshot] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialTab) {
@@ -78,6 +86,157 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
   const [matchForm, setMatchForm] = useState({ homeId: '', awayId: '', stage: 'group' as Match['stage'], group: 'A' });
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const [scoreForm, setScoreForm] = useState({ home: 0, away: 0 });
+
+  const MatchCard = ({ match, participants, onEdit, isAdmin, userParticipant, onChat, onReport, onApprove }: { 
+    match: Match, 
+    participants: Participant[], 
+    onEdit: () => void, 
+    isAdmin: boolean,
+    userParticipant?: Participant,
+    onChat: (matchId: string, homeName: string, awayName: string) => void,
+    onReport: (matchId: string, homeName: string, awayName: string) => void,
+    onApprove: (match: Match) => void
+  }) => {
+    const home = participants.find(p => p.id === match.homeParticipantId);
+    const away = participants.find(p => p.id === match.awayParticipantId);
+    
+    const userParticipantId = participants.find(p => p.userId === user?.uid)?.id;
+    const isHome = userParticipantId === match.homeParticipantId;
+    const isAway = userParticipantId === match.awayParticipantId;
+    const isParticipant = isHome || isAway;
+
+    return (
+      <div className="relative bg-white/5 rounded-[28px] p-6 transition-all shadow-xl border border-white/5 hover:border-white/10 group overflow-hidden rgb-border">
+        {/* Match Status Strip */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <span className={`w-1.5 h-1.5 rounded-full ${
+              match.status === 'completed' ? 'bg-green-500' : 
+              match.status === 'reported' ? 'bg-amber-500 animate-pulse' : 
+              'bg-blue-500 animate-pulse'
+            }`}></span>
+            <span className="text-[8px] font-black uppercase tracking-[0.3em] text-zinc-500 italic">
+              {match.stage.replace('_', ' ')} · {match.group ? `Group ${match.group}` : 'Knockout'}
+              {match.status === 'reported' && ' · REPORTED'}
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {(isParticipant || isAdmin || isOwner) && match.status !== 'completed' && (
+              <div className="flex items-center gap-1.5">
+                <button 
+                  onClick={() => onChat(match.id, home?.displayName || 'TBD', away?.displayName || 'TBD')}
+                  className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-amber-500 border border-white/5"
+                  title="Team Chat"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                </button>
+                {isParticipant && match.status === 'scheduled' && (
+                  <button 
+                    onClick={() => onReport(match.id, home?.displayName || 'TBD', away?.displayName || 'TBD')}
+                    className="p-2 bg-amber-500 text-black hover:bg-amber-400 rounded-xl transition-all border border-amber-400/20"
+                    title="Upload Result"
+                  >
+                    <Upload className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            )}
+            {isAdmin && (
+              <button onClick={onEdit} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-zinc-400">
+                <Edit3 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Contenders Versus Layout */}
+        <div className="flex flex-col gap-3">
+          {/* Home */}
+          <div className={`flex items-center justify-between p-3 rounded-2xl relative ${match.status === 'completed' && match.homeScore! > match.awayScore! ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-black/20 border border-white/5'}`}>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-black/20 flex items-center justify-center font-black text-amber-500 text-[8px] italic border border-white/5">
+                HOME
+              </div>
+              <div className="flex flex-col">
+                <span className={`text-sm font-black italic ${match.status === 'completed' && match.homeScore! > match.awayScore! ? 'text-amber-500' : 'text-white'}`}>{home?.displayName || 'TBD'}</span>
+                <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">{home?.ovr || '--'} OVR</span>
+              </div>
+            </div>
+            <span className={`text-2xl font-black italic ${(match.status === 'completed' || match.status === 'reported') ? (match.homeScore! > match.awayScore! ? 'text-amber-500' : 'text-zinc-500') : 'text-zinc-800'}`}>
+              {(match.status === 'completed' || match.status === 'reported') ? match.homeScore : '-'}
+            </span>
+          </div>
+
+          {/* Away */}
+          <div className={`flex items-center justify-between p-3 rounded-2xl relative ${match.status === 'completed' && match.awayScore! > match.homeScore! ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-black/20 border border-white/5'}`}>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-black/20 flex items-center justify-center font-black text-blue-500 text-[8px] italic border border-white/5">
+                AWAY
+              </div>
+              <div className="flex flex-col">
+                <span className={`text-sm font-black italic ${match.status === 'completed' && match.awayScore! > match.homeScore! ? 'text-amber-500' : 'text-white'}`}>{away?.displayName || 'TBD'}</span>
+                <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">{away?.ovr || '--'} OVR</span>
+              </div>
+            </div>
+            <span className={`text-2xl font-black italic ${(match.status === 'completed' || match.status === 'reported') ? (match.awayScore! > match.homeScore! ? 'text-amber-500' : 'text-zinc-500') : 'text-zinc-800'}`}>
+              {(match.status === 'completed' || match.status === 'reported') ? match.awayScore : '-'}
+            </span>
+          </div>
+        </div>
+
+        {/* Action Buttons for Players */}
+        {match.status === 'scheduled' && isHome && (
+          <button 
+            onClick={() => onReport(match.id, home?.displayName || 'TBD', away?.displayName || 'TBD')}
+            className="w-full mt-4 py-4 bg-amber-500 text-black rounded-2xl font-black uppercase tracking-[0.15em] text-[10px] italic hover:bg-amber-400 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+          >
+            <Upload className="w-4 h-4" />
+            Upload Match Result
+          </button>
+        )}
+
+        {match.status === 'scheduled' && isAway && (
+          <div className="mt-4 p-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+            <span className="text-[9px] font-black text-blue-500/80 uppercase tracking-widest italic leading-tight">
+              You are AWAY. Waiting for HOME player to report result.
+            </span>
+          </div>
+        )}
+
+        {match.status === 'reported' && isAway && (
+          <div className="mt-4 space-y-3">
+            <div className="p-3 bg-white/5 border border-white/5 rounded-xl flex flex-col items-center gap-2">
+              <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest italic text-center">Home player reported result. Verify and approve.</span>
+              {match.screenshotUrl && (
+                <button 
+                  onClick={() => setViewingScreenshot(match.screenshotUrl!)}
+                  className="px-4 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-amber-500 hover:text-black transition-all"
+                >
+                  View Screenshot Proof
+                </button>
+              )}
+            </div>
+            <button 
+              onClick={() => onApprove(match)}
+              className="w-full py-3 bg-green-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest italic hover:bg-green-400 transition-all flex items-center justify-center gap-2"
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              Approve & Finalize
+            </button>
+          </div>
+        )}
+
+        {match.status === 'reported' && isHome && (
+          <div className="mt-4 p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl flex items-center gap-3">
+            <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
+            <span className="text-[9px] font-black text-amber-500/80 uppercase tracking-widest italic leading-tight">Result submitted. Waiting for opponent's verification.</span>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const userParticipant = participants.find(p => p.userId === user?.uid);
   const isUserRegistered = !!userParticipant;
@@ -211,6 +370,21 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
     await updateDoc(doc(db, 'tournaments', tournamentId, 'participants', participantId), { stats });
   };
 
+  const handleApproveResult = async (match: Match) => {
+    try {
+      await updateDoc(doc(db, 'tournaments', tournamentId, 'matches', match.id), {
+        status: 'completed',
+        updatedAt: serverTimestamp()
+      });
+      await updateParticipantStats(match.homeParticipantId);
+      await updateParticipantStats(match.awayParticipantId);
+      alert("Match result verified and published!");
+    } catch (error) {
+      console.error(error);
+      alert("Failed to approve result.");
+    }
+  };
+
   const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
   const knockoutStages: Match['stage'][] = ['round_of_32' as any, 'round_of_16', 'quarter_final', 'semi_final', 'final'];
 
@@ -238,7 +412,7 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
         <div className="flex items-center gap-2">
           {/* User Registration Status */}
           {userParticipant ? (
-            <div className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl border shadow-sm ${
+            <div className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl border shadow-sm rgb-border ${
               userParticipant.status === 'approved' ? 'bg-green-500/10 border-green-500/20 text-green-500' : 
               userParticipant.status === 'pending' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
               'bg-red-500/10 border-red-500/20 text-red-500'
@@ -273,7 +447,7 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
       </div>
 
       {/* Segmented Filter Selector */}
-      <div className="flex p-1.5 bg-white/5 rounded-2xl gap-1.5 border border-white/5 shadow-inner">
+      <div className="flex p-1.5 bg-white/5 rounded-2xl gap-1.5 border border-white/5 shadow-inner rgb-border">
         {[
           { id: 'group', label: 'Arena', icon: LayoutGrid },
           { id: 'knockout', label: 'Bracket', icon: GitMerge },
@@ -315,7 +489,7 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
             </div>
 
             {/* Standings Table Elite */}
-            <div className="bg-white/5 rounded-[32px] overflow-hidden border border-white/5 shadow-2xl">
+            <div className="bg-white/5 rounded-[32px] overflow-hidden border border-white/5 shadow-2xl rgb-border">
               <div className="grid grid-cols-12 px-6 py-4 bg-black/40 text-zinc-500 font-black text-[9px] tracking-widest uppercase italic border-b border-white/5">
                 <div className="col-span-2 text-center">POS</div>
                 <div className="col-span-4">ELITE PLAYER</div>
@@ -360,7 +534,17 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
               <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 italic">Group Fixtures</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {matches.filter(m => m.stage === 'group' && m.group === activeGroup).map(m => (
-                  <MatchCard key={m.id} match={m} participants={participants} onEdit={() => { setEditingMatchId(m.id); setScoreForm({ home: m.homeScore || 0, away: m.awayScore || 0 }); }} isAdmin={isAdmin || isOwner} />
+                  <MatchCard 
+                    key={m.id} 
+                    match={m} 
+                    participants={participants} 
+                    onEdit={() => { setEditingMatchId(m.id); setScoreForm({ home: m.homeScore || 0, away: m.awayScore || 0 }); }} 
+                    isAdmin={isAdmin || isOwner} 
+                    userParticipant={userParticipant}
+                    onChat={(matchId, homeName, awayName) => setActiveMatchChat({ matchId, homeName, awayName })}
+                    onReport={(matchId, homeName, awayName) => setReportingMatch({ matchId, homeName, awayName })}
+                    onApprove={handleApproveResult}
+                  />
                 ))}
               </div>
             </div>
@@ -390,6 +574,10 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
                         participants={participants} 
                         onEdit={() => { setEditingMatchId(m.id); setScoreForm({ home: m.homeScore || 0, away: m.awayScore || 0 }); }} 
                         isAdmin={isAdmin || isOwner} 
+                        userParticipant={userParticipant}
+                        onChat={(matchId, homeName, awayName) => setActiveMatchChat({ matchId, homeName, awayName })}
+                        onReport={(matchId, homeName, awayName) => setReportingMatch({ matchId, homeName, awayName })}
+                        onApprove={handleApproveResult}
                       />
                     ))}
                     {matches.filter(m => m.stage === stage).length === 0 && (
@@ -407,7 +595,7 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
 
         {activeTab === 'rules' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl mx-auto">
-            <div className="bg-[#111827] border border-white/5 rounded-[40px] p-10 shadow-2xl relative overflow-hidden">
+            <div className="bg-[#111827] border border-white/5 rounded-[40px] p-10 shadow-2xl relative overflow-hidden rgb-border">
               <div className="absolute top-0 right-0 p-8 opacity-5">
                 <FileText className="w-32 h-32 text-amber-500" />
               </div>
@@ -450,7 +638,7 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
         {activeTab === 'players' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {approvedParticipants.map(p => (
-              <div key={p.id} className="bg-white/5 border border-white/5 rounded-[28px] p-6 flex items-center justify-between group hover:border-amber-500/30 transition-all shadow-xl">
+              <div key={p.id} className="bg-white/5 border border-white/5 rounded-[28px] p-6 flex items-center justify-between group hover:border-amber-500/30 transition-all shadow-xl rgb-border">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center font-black text-black italic text-lg shadow-lg shadow-amber-500/10">
                     {p.displayName.substring(0, 1)}
@@ -476,7 +664,7 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {pendingRequests.map(p => (
-                  <div key={p.id} className="bg-white/5 border border-white/5 rounded-[32px] p-8 shadow-2xl space-y-6">
+                  <div key={p.id} className="bg-white/5 border border-white/5 rounded-[32px] p-8 shadow-2xl space-y-6 rgb-border">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="w-14 h-14 rounded-2xl bg-amber-500 flex items-center justify-center font-black text-black italic text-2xl">
@@ -535,7 +723,7 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
 
         {activeTab === 'admin' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-             <div className="bg-white/5 border border-white/5 rounded-[40px] p-10 shadow-2xl">
+             <div className="bg-white/5 border border-white/5 rounded-[40px] p-10 shadow-2xl rgb-border">
                 <h3 className="text-2xl font-display font-black text-white uppercase italic italic tracking-tight mb-8">Deploy Control</h3>
                 <div className="space-y-6">
                   <button onClick={() => setIsMatchModalOpen(true)} className="w-full h-16 bg-amber-500 text-black rounded-[24px] font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-amber-500/10 italic hover:bg-amber-400 transition-all flex items-center justify-center gap-3">
@@ -555,7 +743,7 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
                 </div>
              </div>
              
-             <div className="bg-white/5 border border-white/5 rounded-[40px] p-10 shadow-2xl">
+             <div className="bg-white/5 border border-white/5 rounded-[40px] p-10 shadow-2xl rgb-border">
                 <h3 className="text-2xl font-display font-black text-white uppercase italic italic tracking-tight mb-8">Arena Logistics</h3>
                 <div className="space-y-3 max-h-[400px] overflow-y-auto no-scrollbar pr-2">
                   {approvedParticipants.map(p => (
@@ -590,6 +778,52 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
 
       {/* Forms & Modals Elite */}
       <AnimatePresence>
+        {activeMatchChat && (
+          <MatchChat 
+            tournamentId={tournamentId}
+            matchId={activeMatchChat.matchId}
+            homePlayerName={activeMatchChat.homeName}
+            awayPlayerName={activeMatchChat.awayName}
+            participants={participants}
+            onClose={() => setActiveMatchChat(null)}
+          />
+        )}
+
+        {reportingMatch && (
+          <ResultReportModal 
+            tournamentId={tournamentId}
+            matchId={reportingMatch.matchId}
+            homePlayerName={reportingMatch.homeName}
+            awayPlayerName={reportingMatch.awayName}
+            onClose={() => setReportingMatch(null)}
+          />
+        )}
+
+        {viewingScreenshot && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => setViewingScreenshot(null)} 
+              className="absolute inset-0 bg-black/95 backdrop-blur-xl" 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }} 
+              animate={{ opacity: 1, scale: 1 }} 
+              exit={{ opacity: 0, scale: 0.9 }} 
+              className="relative max-w-4xl w-full flex flex-col items-center gap-6"
+            >
+              <img src={viewingScreenshot} alt="Result Proof" className="w-full h-auto max-h-[80vh] object-contain rounded-3xl border border-white/10 shadow-2xl" />
+              <button 
+                onClick={() => setViewingScreenshot(null)}
+                className="px-8 py-3 bg-amber-500 text-black rounded-2xl font-black uppercase tracking-widest text-xs italic shadow-xl shadow-amber-500/20"
+              >
+                Close Preview
+              </button>
+            </motion.div>
+          </div>
+        )}
         {isRegistering && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsRegistering(false)} className="absolute inset-0 bg-black/80 backdrop-blur-md" />
@@ -691,74 +925,6 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
           </div>
         )}
       </AnimatePresence>
-    </div>
-  );
-}
-
-function MatchCard({ match, participants, onEdit, isAdmin }: { match: Match, participants: Participant[], onEdit: () => void, isAdmin: boolean }) {
-  const home = participants.find(p => p.id === match.homeParticipantId);
-  const away = participants.find(p => p.id === match.awayParticipantId);
-
-  return (
-    <div className="relative bg-white/5 rounded-[28px] p-6 transition-all shadow-xl border border-white/5 hover:border-white/10 group overflow-hidden">
-      {/* Match Status Strip */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <span className={`w-1.5 h-1.5 rounded-full ${match.status === 'completed' ? 'bg-zinc-600' : 'bg-amber-500 animate-pulse'}`}></span>
-          <span className="text-[8px] font-black uppercase tracking-[0.3em] text-zinc-500 italic">{match.stage.replace('_', ' ')} · {match.group ? `Group ${match.group}` : 'Knockout'}</span>
-        </div>
-        {match.status === 'completed' && (
-          <div className="flex items-center gap-1.5 text-zinc-600">
-            <CheckCircle className="w-3 h-3" />
-            <span className="text-[8px] font-black uppercase tracking-widest">VERIFIED</span>
-          </div>
-        )}
-      </div>
-
-      {/* Contenders Versus Layout */}
-      <div className="flex flex-col gap-3">
-        {/* Home */}
-        <div className={`flex items-center justify-between p-3 rounded-2xl relative ${match.status === 'completed' && match.homeScore! > match.awayScore! ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-black/20 border border-white/5'}`}>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-black/20 flex items-center justify-center font-black text-amber-500 text-[10px] italic border border-white/5">
-              {home?.displayName.substring(0, 1)}
-            </div>
-            <div className="flex flex-col">
-              <span className={`text-sm font-black italic ${match.status === 'completed' && match.homeScore! > match.awayScore! ? 'text-amber-500' : 'text-white'}`}>{home?.displayName || 'TBD'}</span>
-              <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">{home?.ovr || '--'} OVR</span>
-            </div>
-          </div>
-          <span className={`text-2xl font-black italic ${match.status === 'completed' ? (match.homeScore! > match.awayScore! ? 'text-amber-500' : 'text-zinc-500') : 'text-zinc-800'}`}>
-            {match.status === 'completed' ? match.homeScore : '-'}
-          </span>
-        </div>
-
-        {/* Away */}
-        <div className={`flex items-center justify-between p-3 rounded-2xl relative ${match.status === 'completed' && match.awayScore! > match.homeScore! ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-black/20 border border-white/5'}`}>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-black/20 flex items-center justify-center font-black text-amber-500 text-[10px] italic border border-white/5">
-              {away?.displayName.substring(0, 1)}
-            </div>
-            <div className="flex flex-col">
-              <span className={`text-sm font-black italic ${match.status === 'completed' && match.awayScore! > match.homeScore! ? 'text-amber-500' : 'text-white'}`}>{away?.displayName || 'TBD'}</span>
-              <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">{away?.ovr || '--'} OVR</span>
-            </div>
-          </div>
-          <span className={`text-2xl font-black italic ${match.status === 'completed' ? (match.awayScore! > match.homeScore! ? 'text-amber-500' : 'text-zinc-500') : 'text-zinc-800'}`}>
-            {match.status === 'completed' ? match.awayScore : '-'}
-          </span>
-        </div>
-      </div>
-
-      {/* Admin Quick Action */}
-      {isAdmin && (
-        <div className="mt-6 flex justify-end">
-          <button onClick={onEdit} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 text-zinc-500 hover:text-white rounded-lg text-[8px] font-black uppercase tracking-widest italic transition-all">
-            <Edit3 className="w-3 h-3" />
-            Commit Result
-          </button>
-        </div>
-      )}
     </div>
   );
 }
