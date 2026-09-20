@@ -1,0 +1,134 @@
+{
+  "entities": {
+    "tournament": {
+      "title": "Tournament",
+      "description": "A FC Mobile tournament instance",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 3, "maxLength": 100 },
+        "format": { "type": "string", "enum": ["league", "knockout", "group_knockout"] },
+        "status": { "type": "string", "enum": ["upcoming", "ongoing", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "description": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["name", "format", "status", "createdAt", "createdBy"]
+    },
+    "participant": {
+      "title": "Participant",
+      "description": "A player registered in a tournament",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 2, "maxLength": 50 },
+        "teamName": { "type": "string", "maxLength": 50 },
+        "ovr": { "type": "integer", "minimum": 60, "maximum": 150 },
+        "group": { "type": "string", "maxLength": 1 },
+        "phone": { "type": "string" },
+        "registeredAt": { "type": "string", "format": "date-time" },
+        "stats": {
+          "type": "object",
+          "properties": {
+            "played": { "type": "integer" },
+            "won": { "type": "integer" },
+            "lost": { "type": "integer" },
+            "drawn": { "type": "integer" },
+            "goalsFor": { "type": "integer" },
+            "goalsAgainst": { "type": "integer" },
+            "points": { "type": "integer" }
+          }
+        }
+      },
+      "required": ["userId", "displayName", "registeredAt"]
+    },
+    "match": {
+      "title": "Match",
+      "description": "A single match in a tournament",
+      "type": "object",
+      "properties": {
+        "homeParticipantId": { "type": "string" },
+        "awayParticipantId": { "type": "string" },
+        "homeScore": { "type": "integer" },
+        "awayScore": { "type": "integer" },
+        "status": { "type": "string", "enum": ["scheduled", "completed"] },
+        "stage": { "type": "string", "enum": ["group", "round_of_32", "round_of_16", "quarter_final", "semi_final", "final"] },
+        "group": { "type": "string", "maxLength": 1 },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "enum": ["goal", "yellow_card", "red_card"] },
+              "minute": { "type": "integer" },
+              "playerId": { "type": "string" },
+              "playerName": { "type": "string" }
+            }
+          }
+        },
+        "playedAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["homeParticipantId", "awayParticipantId", "status", "stage"]
+    },
+    "user": {
+      "title": "User Profile",
+      "description": "Detailed player profile data",
+      "type": "object",
+      "properties": {
+        "gameName": { "type": "string" },
+        "ovr": { "type": "integer" },
+        "gameUid": { "type": "string" },
+        "facebookLink": { "type": "string" },
+        "phone": { "type": "string" },
+        "gamePassword": { "type": "string" }
+      }
+    },
+    "notification": {
+      "title": "Notification",
+      "description": "Global announcement from admin",
+      "type": "object",
+      "properties": {
+        "content": { "type": "string" },
+        "type": { "type": "string", "enum": ["info", "warning", "success"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["content", "type", "createdAt", "active"]
+    },
+    "admin": {
+      "title": "Admin",
+      "description": "A user with administrative privileges",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" }
+      },
+      "required": ["email"]
+    }
+  },
+  "firestore": {
+    "/tournaments/{tournamentId}": {
+      "schema": "tournament",
+      "description": "Root collection for tournaments"
+    },
+    "/tournaments/{tournamentId}/participants/{participantId}": {
+      "schema": "participant",
+      "description": "Participants within a specific tournament"
+    },
+    "/tournaments/{tournamentId}/matches/{matchId}": {
+      "schema": "match",
+      "description": "Matches within a specific tournament"
+    },
+    "/admins/{userId}": {
+      "schema": "admin",
+      "description": "Admin users list"
+    },
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "Global user profiles"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "notification",
+      "description": "Global announcements"
+    }
+  }
+}

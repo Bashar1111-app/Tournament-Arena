@@ -1,0 +1,6 @@
+{
+  "name": "FC Arena VS",
+  "description": "A comprehensive management app for FC Mobile tournaments, featuring participant registration, live scoreboards, and tournament administration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

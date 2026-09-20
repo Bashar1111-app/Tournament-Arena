@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function isAdmin() { 
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'sperkplay@gmail.com'
+      );
+    }
+    function isPublisher() {
+      return isSignedIn() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'publisher';
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // --- Entity Validations ---
+    function isValidTournament(data) {
+      return data.keys().hasAll(['name', 'format', 'status', 'createdAt', 'createdBy']) &&
+             data.name is string && data.name.size() >= 3 && data.name.size() <= 100 &&
+             data.format in ['league', 'knockout', 'group_knockout'] &&
+             data.status in ['upcoming', 'ongoing', 'completed'] &&
+             data.createdAt == request.time &&
+             data.createdBy == request.auth.uid;
+    }
+
+    function isValidParticipant(data) {
+      return data.keys().hasAll(['userId', 'displayName', 'registeredAt', 'status']) &&
+             data.keys().hasOnly(['userId', 'displayName', 'teamName', 'ovr', 'group', 'phone', 'registeredAt', 'stats', 'status', 'fbLink', 'gameUid']) &&
+             data.userId == request.auth.uid &&
+             data.status == 'pending' &&
+             data.registeredAt == request.time;
+    }
+
+    function isValidMatch(data) {
+      return data.keys().hasAll(['homeParticipantId', 'awayParticipantId', 'status', 'stage']) &&
+             data.keys().hasOnly(['homeParticipantId', 'awayParticipantId', 'homeScore', 'awayScore', 'status', 'stage', 'group', 'events', 'playedAt', 'updatedAt']) &&
+             data.status in ['scheduled', 'completed'] &&
+             data.stage in ['group', 'round_of_32', 'round_of_16', 'quarter_final', 'semi_final', 'final'] &&
+             (data.get('group', null) == null || (data.group is string && data.group.size() <= 1)) &&
+             (data.get('events', null) == null || data.events is list);
+    }
+
+    // --- Collections ---
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /admins/{userId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /tournaments/{tournamentId} {
+      allow read: if true;
+      allow create: if isSignedIn() && (isAdmin() || isPublisher()) && isValidTournament(incoming());
+      allow update: if isSignedIn();
+      allow delete: if isAdmin();
+
+      match /participants/{participantId} {
+        allow read: if true;
+        allow create: if isSignedIn() && (isAdmin() || isValidParticipant(incoming()));
+        allow update: if isSignedIn() && (isAdmin() || request.auth.uid == get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.createdBy);
+        allow delete: if isAdmin() || request.auth.uid == get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.createdBy || (existing().userId == request.auth.uid && existing().status == 'pending');
+      }
+
+      match /matches/{matchId} {
+        allow read: if true;
+        allow create, update: if isSignedIn() && (isAdmin() || request.auth.uid == get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.createdBy);
+        allow delete: if isSignedIn() && (isAdmin() || request.auth.uid == get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.createdBy);
+      }
+    }
+
+    // --- Collection Group Access ---
+    match /{path=**}/participants/{participantId} {
+      allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
+    }
+  }
+}
