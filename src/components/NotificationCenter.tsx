@@ -77,7 +77,7 @@ export function NotificationCenter() {
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className="absolute right-0 mt-3 w-80 bg-[#1A2233] border border-white/10 rounded-[24px] shadow-2xl overflow-hidden z-[100]"
+            className="absolute -right-12 sm:right-0 mt-3 w-[calc(100vw-48px)] max-w-[340px] sm:w-80 bg-[#1A2233] border border-white/10 rounded-[24px] shadow-2xl overflow-hidden z-[100]"
           >
             <div className="p-4 border-b border-white/5 bg-white/5">
               <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 italic">Arena Notifications</h3>

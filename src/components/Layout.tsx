@@ -70,60 +70,60 @@ export function Layout({ children, onBack, isDetail, activeTab, setActiveTab, on
     <div className="min-h-screen bg-[#0B1221] flex flex-col font-sans">
       {/* Sophisticated Header */}
       <header className="sticky top-0 w-full z-50 bg-[#0B1221]/80 backdrop-blur-xl border-b border-white/5 shadow-lg">
-        <div className="max-w-7xl mx-auto h-16 px-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto h-16 px-4 sm:px-6 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-shrink">
             {isDetail && activeTab === 'arena' && (
               <button 
                 onClick={onBack}
-                className="p-2 hover:bg-white/5 rounded-xl transition-all mr-1"
+                className="p-1.5 hover:bg-white/5 rounded-xl transition-all flex-shrink-0"
               >
                 <ChevronLeft className="w-5 h-5 text-zinc-400" />
               </button>
             )}
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center shadow-lg shadow-amber-500/20">
-              <Trophy className="w-5 h-5 text-black" />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center shadow-lg shadow-amber-500/20 flex-shrink-0">
+              <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-black" />
             </div>
-            <div className="flex flex-col">
-              <span className="font-display text-[16px] font-black tracking-tight text-white uppercase italic leading-none">FC ARENA VS</span>
-              <span className="text-[9px] font-black text-amber-500 uppercase tracking-[0.2em] mt-1 opacity-80">Elite Engine</span>
+            <div className="flex flex-col min-w-0 overflow-hidden">
+              <span className="font-display text-[14px] sm:text-[16px] font-black tracking-tight text-white uppercase italic leading-none truncate">FC ARENA VS</span>
+              <span className="text-[8px] sm:text-[9px] font-black text-amber-500 uppercase tracking-[0.1em] sm:tracking-[0.2em] mt-0.5 sm:mt-1 opacity-80 truncate">Elite Engine</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             <button 
               onClick={() => setIsSearchOpen(true)}
-              className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition-all text-zinc-400 hover:text-white"
+              className="p-2 sm:p-2.5 bg-white/5 hover:bg-white/10 rounded-lg sm:rounded-xl border border-white/5 transition-all text-zinc-400 hover:text-white"
             >
-              <Search className="w-5 h-5" />
+              <Search className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
             <NotificationCenter />
             {isAdmin && (
-              <span className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-white/5 text-white text-[8px] font-black uppercase tracking-widest rounded-full border border-white/5">
+              <span className="hidden md:flex items-center gap-1.5 px-3 py-1 bg-white/5 text-white text-[8px] font-black uppercase tracking-widest rounded-full border border-white/5">
                 <ShieldCheck className="w-3 h-3 text-amber-500" />
                 ADMIN
               </span>
             )}
             {user ? (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <div className="hidden sm:flex flex-col items-end">
                   <span className="text-[11px] font-black text-white italic">{user.displayName || 'Spark Play'}</span>
                   <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">
                     {userData?.role === 'publisher' ? 'Arena Publisher' : 'Elite Member'}
                   </span>
                 </div>
-                <div className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shadow-lg shadow-black/20 cursor-pointer" onClick={() => setActiveTab('profile')}>
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shadow-lg shadow-black/20 cursor-pointer" onClick={() => setActiveTab('profile')}>
                   {(userData?.photoURL || user.photoURL) ? (
                     <img src={userData?.photoURL || user.photoURL || ''} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
-                    <UserCircle className="w-5 h-5 text-zinc-500" />
+                    <UserCircle className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-500" />
                   )}
                 </div>
               </div>
             ) : (
               <button 
                 onClick={() => setIsLoginModalOpen(true)}
-                className="px-6 py-2.5 bg-amber-500 text-black rounded-xl font-black text-[11px] uppercase tracking-[0.2em] shadow-lg shadow-amber-500/20 transition-all hover:bg-amber-400 active:scale-95 italic"
+                className="px-4 sm:px-6 py-2 sm:py-2.5 bg-amber-500 text-black rounded-lg sm:rounded-xl font-black text-[10px] sm:text-[11px] uppercase tracking-[0.1em] sm:tracking-[0.2em] shadow-lg shadow-amber-500/20 transition-all hover:bg-amber-400 active:scale-95 italic"
               >
                 Login
               </button>
