@@ -38,10 +38,18 @@ export const ResultReportModal: React.FC<ResultReportModalProps> = ({
     setNameMatchInfo(null);
     setPerformanceStats(null);
     try {
+      // Compress image before analysis
+      const options = {
+        maxSizeMB: 0.3, // Max 300KB
+        maxWidthOrHeight: 1280,
+        useWebWorker: true
+      };
+      
+      const compressedFile = await imageCompression(file, options);
       const reader = new FileReader();
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(compressedFile);
       reader.onloadend = async () => {
-        const base64 = reader.result as string;
+        const base64 = (reader.result as string).split(',')[1];
         const response = await fetch('/api/analyze-result', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

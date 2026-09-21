@@ -211,7 +211,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
       className="space-y-8 pb-20"
     >
       {/* Ultra-Modern Hero Profile Section */}
-      <div className="relative overflow-hidden rounded-[56px] bg-gradient-to-br from-[#0B1221] via-[#111827] to-[#0B1221] border border-white/10 p-12 shadow-[0_0_50px_rgba(0,0,0,0.5)] rgb-border">
+      <div className="relative overflow-hidden rounded-[40px] sm:rounded-[56px] bg-gradient-to-br from-[#0B1221] via-[#111827] to-[#0B1221] border border-white/10 p-6 sm:p-12 shadow-[0_0_50px_rgba(0,0,0,0.5)] rgb-border">
         {/* Animated Background Glow */}
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-amber-500/10 blur-[120px] rounded-full pointer-events-none animate-pulse"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#38bdf8]/10 blur-[120px] rounded-full pointer-events-none animate-pulse" style={{ animationDelay: '1s' }}></div>
@@ -268,20 +268,20 @@ export function Profile({ onSelectTournament }: ProfileProps) {
                 <span className="text-[10px] font-black text-amber-500 uppercase tracking-[0.4em] italic">Elite Federation Athlete</span>
                 <Shield className="w-4 h-4 text-amber-500 fill-amber-500/20" />
               </div>
-              <h2 className="text-[64px] font-black text-white uppercase italic leading-none tracking-[-0.05em] drop-shadow-2xl">
+              <h2 className="text-4xl sm:text-[64px] font-black text-white uppercase italic leading-tight sm:leading-none tracking-tight sm:tracking-[-0.05em] drop-shadow-2xl px-4">
                 {profileData.gameName || user.displayName || 'LEGEND'}
               </h2>
             </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-4">
-              <div className="flex items-center gap-2 px-6 py-2.5 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-md">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 px-4">
+              <div className="w-full sm:w-auto flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl backdrop-blur-md">
                 <Fingerprint className="w-4 h-4 text-zinc-500" />
-                <span className="text-[11px] font-black text-zinc-400 uppercase tracking-widest italic">UID:</span>
-                <span className="text-[11px] font-mono font-black text-white">{profileData.gameUid || '---'}</span>
+                <span className="text-[9px] sm:text-[11px] font-black text-zinc-400 uppercase tracking-widest italic">UID:</span>
+                <span className="text-[9px] sm:text-[11px] font-mono font-black text-white">{profileData.gameUid || '---'}</span>
               </div>
-              <div className="flex items-center gap-2 px-6 py-2.5 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-md">
+              <div className="w-full sm:w-auto flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl backdrop-blur-md">
                 <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-                <span className="text-[11px] font-black text-white uppercase tracking-widest italic">Global Rank #1</span>
+                <span className="text-[9px] sm:text-[11px] font-black text-white uppercase tracking-widest italic">Global Rank #1</span>
               </div>
             </div>
 

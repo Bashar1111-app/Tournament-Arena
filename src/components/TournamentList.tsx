@@ -46,7 +46,7 @@ function TournamentCard({ tournament, onSelect }: { tournament: Tournament, onSe
       layoutId={tournament.id}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="relative bg-[#111827] rgb-border border-white/5 rounded-[32px] p-8 shadow-2xl overflow-hidden group hover:border-amber-500/20 transition-all"
+      className="relative bg-[#111827] rgb-border border-white/5 rounded-[32px] p-6 sm:p-8 shadow-2xl overflow-hidden group hover:border-amber-500/20 transition-all"
     >
       {/* Background Icon Watermark */}
       <div className="absolute bottom-[-20px] right-[-10px] opacity-[0.03] group-hover:scale-110 transition-transform duration-700 pointer-events-none">
@@ -54,34 +54,34 @@ function TournamentCard({ tournament, onSelect }: { tournament: Tournament, onSe
       </div>
 
       {/* Top Badges Row */}
-      <div className="flex items-center gap-3 mb-8">
-        <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
+        <div className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl border ${
           tournament.status === 'ongoing' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
           tournament.status === 'upcoming' ? 'bg-[#38bdf8]/10 border-[#38bdf8]/20 text-[#38bdf8]' :
           'bg-zinc-800/50 border-white/5 text-zinc-500'
         }`}>
-          <span className={`w-2 h-2 rounded-full ${tournament.status === 'ongoing' ? 'bg-amber-500 animate-pulse' : tournament.status === 'upcoming' ? 'bg-[#38bdf8]' : 'bg-zinc-600'}`}></span>
-          <span className="text-[10px] font-black uppercase tracking-widest italic">
-            {tournament.status === 'ongoing' ? 'Live Battles' : tournament.status === 'upcoming' ? 'Entry Open' : 'Finished'}
+          <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${tournament.status === 'ongoing' ? 'bg-amber-500 animate-pulse' : tournament.status === 'upcoming' ? 'bg-[#38bdf8]' : 'bg-zinc-600'}`}></span>
+          <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest italic">
+            {tournament.status === 'ongoing' ? 'Live' : tournament.status === 'upcoming' ? 'Open' : 'End'}
           </span>
         </div>
         
-        {/* Entry Type Badge (Green Area) */}
-        <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${
+        {/* Entry Type Badge */}
+        <div className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl border ${
           tournament.entryType === 'paid' ? 'bg-red-500/10 border-red-500/20 text-red-500' : 'bg-green-500/10 border-green-500/20 text-green-500'
         }`}>
-          <span className="text-[10px] font-black uppercase tracking-widest italic">{tournament.entryType === 'paid' ? 'Paid Entry' : 'Free Entry'}</span>
+          <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest italic">{tournament.entryType === 'paid' ? 'Paid' : 'Free'}</span>
         </div>
 
-        {/* Prize Pool Badge (Red Area) */}
-        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 ml-auto">
-          <Award className="w-3.5 h-3.5" />
-          <span className="text-[10px] font-black uppercase tracking-widest italic">{tournament.prize || 'No Prize'}</span>
+        {/* Prize Pool Badge */}
+        <div className="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 ml-auto">
+          <Award className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
+          <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest italic">{tournament.prize || 'No Prize'}</span>
         </div>
       </div>
 
       {/* Tournament Title */}
-      <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-4 leading-tight">
+      <h3 className="text-xl sm:text-2xl font-black text-white italic uppercase tracking-tighter mb-4 leading-tight">
         {tournament.name}
       </h3>
 
@@ -127,19 +127,19 @@ function TournamentCard({ tournament, onSelect }: { tournament: Tournament, onSe
       <div className="flex items-center gap-3">
         <button 
           onClick={() => onSelect(tournament.id)}
-          className="flex-1 h-16 bg-amber-500 hover:bg-amber-400 text-black rounded-[24px] font-black uppercase tracking-[0.2em] text-[12px] italic shadow-xl shadow-amber-500/20 flex items-center justify-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98]"
+          className="flex-1 h-12 sm:h-16 bg-amber-500 hover:bg-amber-400 text-black rounded-2xl sm:rounded-[24px] font-black uppercase tracking-[0.2em] text-[10px] sm:text-[12px] italic shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2 sm:gap-3 transition-all hover:scale-[1.02] active:scale-[0.98]"
         >
-          <Zap className="w-5 h-5 fill-current" />
+          <Zap className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
           Enter Arena
         </button>
         <button 
-          className="h-16 w-16 bg-white/5 hover:bg-white/10 text-zinc-500 hover:text-white border border-white/5 rounded-[24px] flex items-center justify-center transition-all group/share"
+          className="h-12 w-12 sm:h-16 sm:w-16 bg-white/5 hover:bg-white/10 text-zinc-500 hover:text-white border border-white/5 rounded-2xl sm:rounded-[24px] flex items-center justify-center transition-all group/share"
           onClick={(e) => {
             e.stopPropagation();
             alert("Share feature synchronized!");
           }}
         >
-          <Share2 className="w-5 h-5 group-hover/share:scale-110 transition-transform" />
+          <Share2 className="w-4 h-4 sm:w-5 sm:h-5 group-hover/share:scale-110 transition-transform" />
         </button>
       </div>
     </motion.div>
