@@ -273,17 +273,17 @@ export function Profile({ onSelectTournament }: ProfileProps) {
               </h2>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 px-4">
-              <div className="w-full sm:w-auto flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl backdrop-blur-md">
-                <Fingerprint className="w-4 h-4 text-zinc-500" />
-                <span className="text-[9px] sm:text-[11px] font-black text-zinc-400 uppercase tracking-widest italic">UID:</span>
-                <span className="text-[9px] sm:text-[11px] font-mono font-black text-white">{profileData.gameUid || '---'}</span>
-              </div>
-              <div className="w-full sm:w-auto flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl backdrop-blur-md">
-                <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-                <span className="text-[9px] sm:text-[11px] font-black text-white uppercase tracking-widest italic">Global Rank #1</span>
-              </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 px-4">
+            <div className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl backdrop-blur-md">
+              <Fingerprint className="w-4 h-4 text-zinc-500" />
+              <span className="text-[9px] sm:text-[11px] font-black text-zinc-400 uppercase tracking-widest italic shrink-0">UID:</span>
+              <span className="text-[9px] sm:text-[11px] font-mono font-black text-white break-all">{profileData.gameUid || '---'}</span>
             </div>
+            <div className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl backdrop-blur-md">
+              <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+              <span className="text-[9px] sm:text-[11px] font-black text-white uppercase tracking-widest italic">Global Rank #1</span>
+            </div>
+          </div>
 
             <div className="flex gap-4 justify-center pt-4">
               <button 

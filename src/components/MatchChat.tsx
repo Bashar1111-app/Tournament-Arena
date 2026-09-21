@@ -7,6 +7,8 @@ import { ref, push, onValue, serverTimestamp, off, set } from 'firebase/database
 interface Message {
   id: string;
   senderId: string;
+  senderName?: string;
+  senderPhoto?: string;
   text: string;
   createdAt: number;
 }

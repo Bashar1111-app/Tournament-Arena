@@ -246,12 +246,12 @@ export function TournamentList({ onSelectTournament }: TournamentListProps) {
 
       {/* Filter Pills & Admin/Publisher Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
           {(['all', 'live', 'upcoming'] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all italic border rgb-border ${
+              className={`px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest uppercase transition-all italic border min-w-[100px] sm:min-w-0 rgb-border ${
                 filter === f 
                   ? 'bg-white text-black border-white shadow-xl scale-105' 
                   : 'bg-white/5 text-zinc-500 border-white/5 hover:text-white'

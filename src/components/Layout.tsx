@@ -83,9 +83,9 @@ export function Layout({ children, onBack, isDetail, activeTab, setActiveTab, on
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center shadow-lg shadow-amber-500/20 flex-shrink-0">
               <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-black" />
             </div>
-            <div className="flex flex-col min-w-0 overflow-hidden">
-              <span className="font-display text-[14px] sm:text-[16px] font-black tracking-tight text-white uppercase italic leading-none truncate">FC ARENA VS</span>
-              <span className="text-[8px] sm:text-[9px] font-black text-amber-500 uppercase tracking-[0.1em] sm:tracking-[0.2em] mt-0.5 sm:mt-1 opacity-80 truncate">Elite Engine</span>
+            <div className="flex flex-col min-w-0 overflow-hidden hidden xs:flex">
+              <span className="font-display text-[12px] sm:text-[16px] font-black tracking-tight text-white uppercase italic leading-none truncate">FC ARENA VS</span>
+              <span className="text-[7px] sm:text-[9px] font-black text-amber-500 uppercase tracking-[0.1em] sm:tracking-[0.2em] mt-0.5 sm:mt-1 opacity-80 truncate">Elite Engine</span>
             </div>
           </div>
 

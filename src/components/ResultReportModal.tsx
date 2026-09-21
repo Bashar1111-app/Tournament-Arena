@@ -200,32 +200,32 @@ export const ResultReportModal: React.FC<ResultReportModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 space-y-8">
+        <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6 sm:space-y-8">
           {/* Scoreline Input */}
-          <div className="grid grid-cols-3 items-center gap-4">
-            <div className="text-center space-y-2">
-              <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block">{homePlayerName}</label>
+          <div className="grid grid-cols-3 items-center gap-2 sm:gap-4">
+            <div className="text-center space-y-2 min-w-0">
+              <label className="text-[8px] sm:text-[10px] font-black text-zinc-500 uppercase tracking-widest block truncate">{homePlayerName}</label>
               <input 
                 type="number"
                 value={homeScore}
                 onChange={(e) => setHomeScore(e.target.value)}
                 placeholder="0"
                 required
-                className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl text-center text-2xl font-black text-white focus:outline-none focus:border-amber-500/50"
+                className="w-full h-14 sm:h-16 bg-white/5 border border-white/10 rounded-2xl text-center text-xl sm:text-2xl font-black text-white focus:outline-none focus:border-amber-500/50"
               />
             </div>
             <div className="text-center">
-              <span className="text-2xl font-black text-zinc-700 italic">VS</span>
+              <span className="text-xl sm:text-2xl font-black text-zinc-700 italic">VS</span>
             </div>
-            <div className="text-center space-y-2">
-              <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block">{awayPlayerName}</label>
+            <div className="text-center space-y-2 min-w-0">
+              <label className="text-[8px] sm:text-[10px] font-black text-zinc-500 uppercase tracking-widest block truncate">{awayPlayerName}</label>
               <input 
                 type="number"
                 value={awayScore}
                 onChange={(e) => setAwayScore(e.target.value)}
                 placeholder="0"
                 required
-                className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl text-center text-2xl font-black text-white focus:outline-none focus:border-amber-500/50"
+                className="w-full h-14 sm:h-16 bg-white/5 border border-white/10 rounded-2xl text-center text-xl sm:text-2xl font-black text-white focus:outline-none focus:border-amber-500/50"
               />
             </div>
           </div>

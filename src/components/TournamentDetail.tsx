@@ -16,12 +16,14 @@ interface Participant {
   displayName: string;
   teamName: string;
   ovr: number;
+  photoURL?: string;
   group?: string;
   phone?: string;
   fbLink?: string;
   gameUid?: string;
   status: 'pending' | 'approved' | 'rejected';
   registeredAt: any;
+  eliteScore: number;
   stats?: {
     played: number;
     won: number;
@@ -37,6 +39,8 @@ interface Match {
   id: string;
   homeParticipantId: string;
   awayParticipantId: string;
+  homeId?: string; // Legacy support for some components
+  awayId?: string; // Legacy support for some components
   homeScore?: number;
   awayScore?: number;
   status: 'scheduled' | 'reported' | 'completed';
@@ -45,6 +49,7 @@ interface Match {
   reportedBy?: string;
   screenshotUrl?: string;
   updatedAt?: any;
+  stats?: any;
 }
 
 interface Tournament {
@@ -207,9 +212,9 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
               <div className="w-8 h-8 rounded-lg bg-black/20 flex items-center justify-center font-black text-amber-500 text-[8px] italic border border-white/5">
                 HOME
               </div>
-              <div className="flex flex-col">
-                <span className={`text-sm font-black italic ${match.status === 'completed' && match.homeScore! > match.awayScore! ? 'text-amber-500' : 'text-white'}`}>{home?.displayName || 'TBD'}</span>
-                <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">{home?.ovr || '--'} OVR</span>
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className={`text-sm font-black italic truncate ${match.status === 'completed' && match.homeScore! > match.awayScore! ? 'text-amber-500' : 'text-white'}`}>{home?.displayName || 'TBD'}</span>
+                <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest truncate">{home?.ovr || '--'} OVR</span>
               </div>
             </div>
             <span className={`text-2xl font-black italic ${(match.status === 'completed' || match.status === 'reported') ? (match.homeScore! > match.awayScore! ? 'text-amber-500' : 'text-zinc-500') : 'text-zinc-800'}`}>
@@ -223,9 +228,9 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
               <div className="w-8 h-8 rounded-lg bg-black/20 flex items-center justify-center font-black text-blue-500 text-[8px] italic border border-white/5">
                 AWAY
               </div>
-              <div className="flex flex-col">
-                <span className={`text-sm font-black italic ${match.status === 'completed' && match.awayScore! > match.homeScore! ? 'text-amber-500' : 'text-white'}`}>{away?.displayName || 'TBD'}</span>
-                <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">{away?.ovr || '--'} OVR</span>
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className={`text-sm font-black italic truncate ${match.status === 'completed' && match.awayScore! > match.homeScore! ? 'text-amber-500' : 'text-white'}`}>{away?.displayName || 'TBD'}</span>
+                <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest truncate">{away?.ovr || '--'} OVR</span>
               </div>
             </div>
             <span className={`text-2xl font-black italic ${(match.status === 'completed' || match.status === 'reported') ? (match.awayScore! > match.homeScore! ? 'text-amber-500' : 'text-zinc-500') : 'text-zinc-800'}`}>
@@ -452,10 +457,10 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
   return (
     <div className="space-y-6">
       {/* Tournament Sub-Hero Overlay */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-2">
-        <div className="flex flex-col">
+      <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-4 sm:gap-6 pt-2">
+        <div className="flex flex-col items-center sm:items-start text-center sm:text-left w-full sm:w-auto">
           <div className="flex items-center gap-3">
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500 italic">FC Arena Invitational · 2026</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-amber-500 italic">FC Arena Invitational · 2026</span>
             <button 
               onClick={() => {
                 setActiveMatchChat({ matchId: 'global', homeName: 'TOURNAMENT', awayName: 'GLOBAL CHAT', isGlobal: true });
@@ -512,7 +517,7 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
       </div>
 
       {/* Segmented Filter Selector */}
-      <div className="flex p-1.5 bg-white/5 rounded-2xl gap-1.5 border border-white/5 shadow-inner rgb-border">
+      <div className="flex p-1.5 bg-white/5 rounded-2xl gap-1.5 border border-white/5 shadow-inner rgb-border overflow-x-auto no-scrollbar">
         {[
           { id: 'group', label: 'Arena', icon: LayoutGrid },
           { id: 'knockout', label: 'Bracket', icon: GitMerge },
@@ -525,12 +530,12 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all italic ${
+            className={`flex-1 min-w-[80px] sm:min-w-0 py-3 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all italic ${
               activeTab === tab.id ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/10' : 'text-zinc-500 hover:text-white hover:bg-white/5'
             }`}
           >
             <tab.icon className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{tab.label}</span>
+            <span className="hidden xs:inline sm:inline">{tab.label}</span>
           </button>
         ))}
       </div>
@@ -555,43 +560,45 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
             </div>
 
             {/* Standings Table Elite */}
-            <div className="bg-white/5 rounded-[32px] overflow-hidden border border-white/5 shadow-2xl rgb-border">
-              <div className="grid grid-cols-12 px-6 py-4 bg-black/40 text-zinc-500 font-black text-[9px] tracking-widest uppercase italic border-b border-white/5">
-                <div className="col-span-2 text-center">POS</div>
-                <div className="col-span-4">ELITE PLAYER</div>
-                <div className="col-span-1 text-center">P</div>
-                <div className="col-span-1 text-center">W</div>
-                <div className="col-span-1 text-center">D</div>
-                <div className="col-span-1 text-center">L</div>
-                <div className="col-span-1 text-right">GD</div>
-                <div className="col-span-1 text-right pr-2 text-amber-500">PTS</div>
-              </div>
-              <div className="divide-y divide-white/5">
-                {getGroupParticipants(activeGroup).map((p, i) => (
-                  <div key={p.id} className="grid grid-cols-12 px-6 py-5 items-center hover:bg-white/5 transition-all group">
-                    <div className="col-span-2 flex items-center justify-center">
-                      <span className={`text-[16px] font-black italic ${i < 2 ? 'text-amber-500' : 'text-zinc-600'}`}>{i + 1}</span>
-                    </div>
-                    <div className="col-span-4 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center border border-white/5">
-                        <Users className="w-4 h-4 text-zinc-500" />
+            <div className="bg-white/5 rounded-[32px] overflow-x-auto no-scrollbar border border-white/5 shadow-2xl rgb-border">
+              <div className="min-w-[600px]">
+                <div className="grid grid-cols-12 px-6 py-4 bg-black/40 text-zinc-500 font-black text-[9px] tracking-widest uppercase italic border-b border-white/5">
+                  <div className="col-span-1 text-center">POS</div>
+                  <div className="col-span-5">ELITE PLAYER</div>
+                  <div className="col-span-1 text-center">P</div>
+                  <div className="col-span-1 text-center">W</div>
+                  <div className="col-span-1 text-center">D</div>
+                  <div className="col-span-1 text-center">L</div>
+                  <div className="col-span-1 text-right">GD</div>
+                  <div className="col-span-1 text-right pr-2 text-amber-500">PTS</div>
+                </div>
+                <div className="divide-y divide-white/5">
+                  {getGroupParticipants(activeGroup).map((p, i) => (
+                    <div key={p.id} className="grid grid-cols-12 px-6 py-5 items-center hover:bg-white/5 transition-all group">
+                      <div className="col-span-1 flex items-center justify-center">
+                        <span className={`text-[16px] font-black italic ${i < 2 ? 'text-amber-500' : 'text-zinc-600'}`}>{i + 1}</span>
                       </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-sm font-black text-white truncate italic">{p.displayName}</span>
-                        <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest truncate">{p.teamName} · {p.ovr} OVR</span>
+                      <div className="col-span-5 flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center border border-white/5 flex-shrink-0">
+                          <Users className="w-4 h-4 text-zinc-500" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm font-black text-white truncate italic">{p.displayName}</span>
+                          <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest truncate">{p.teamName} · {p.ovr} OVR</span>
+                        </div>
                       </div>
+                      <div className="col-span-1 text-center text-xs font-black text-zinc-500 italic">{p.stats?.played || 0}</div>
+                      <div className="col-span-1 text-center text-xs font-black text-zinc-300 italic">{p.stats?.won || 0}</div>
+                      <div className="col-span-1 text-center text-xs font-black text-zinc-500 italic">{p.stats?.drawn || 0}</div>
+                      <div className="col-span-1 text-center text-xs font-black text-zinc-500 italic">{p.stats?.lost || 0}</div>
+                      <div className="col-span-1 text-right text-xs font-black text-zinc-300 italic">{(p.stats?.goalsFor || 0) - (p.stats?.goalsAgainst || 0)}</div>
+                      <div className="col-span-1 text-right pr-2 text-sm font-black text-amber-500 italic">{p.stats?.points || 0}</div>
                     </div>
-                    <div className="col-span-1 text-center text-xs font-black text-zinc-500 italic">{p.stats?.played || 0}</div>
-                    <div className="col-span-1 text-center text-xs font-black text-zinc-300 italic">{p.stats?.won || 0}</div>
-                    <div className="col-span-1 text-center text-xs font-black text-zinc-500 italic">{p.stats?.drawn || 0}</div>
-                    <div className="col-span-1 text-center text-xs font-black text-zinc-500 italic">{p.stats?.lost || 0}</div>
-                    <div className="col-span-1 text-right text-xs font-black text-zinc-300 italic">{(p.stats?.goalsFor || 0) - (p.stats?.goalsAgainst || 0)}</div>
-                    <div className="col-span-1 text-right pr-2 text-sm font-black text-amber-500 italic">{p.stats?.points || 0}</div>
-                  </div>
-                ))}
-                {getGroupParticipants(activeGroup).length === 0 && (
-                  <div className="p-12 text-center text-[10px] font-black uppercase tracking-widest text-zinc-700 italic">No participants in this group yet</div>
-                )}
+                  ))}
+                  {getGroupParticipants(activeGroup).length === 0 && (
+                    <div className="p-12 text-center text-[10px] font-black uppercase tracking-widest text-zinc-700 italic">No participants in this group yet</div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -661,138 +668,140 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
 
         {activeTab === 'ranking' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-            <div className="bg-white/5 border border-white/5 rounded-[40px] overflow-hidden shadow-2xl rgb-border">
-              <div className="p-8 border-b border-white/5 bg-black/20 flex items-center justify-between">
-                <div>
-                  <h3 className="text-2xl font-display font-black text-white uppercase italic tracking-tight">Arena Ranking</h3>
-                  <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">Global performance leaderboard · 2026</p>
-                </div>
-                <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20">
-                  <Trophy className="w-6 h-6 text-amber-500" />
-                </div>
-              </div>
-              
-              <div className="p-2">
-                <div className="grid grid-cols-12 px-6 py-4 text-zinc-500 font-black text-[9px] tracking-widest uppercase italic border-b border-white/5">
-                  <div className="col-span-2 text-center">RANK</div>
-                  <div className="col-span-4">ELITE PLAYER</div>
-                  <div className="col-span-2 text-center">RATING</div>
-                  <div className="col-span-2 text-center">RECORD</div>
-                  <div className="col-span-2 text-right pr-4">ARENA PTS</div>
+            <div className="bg-white/5 border border-white/5 rounded-[40px] overflow-x-auto no-scrollbar shadow-2xl rgb-border">
+              <div className="min-w-[700px]">
+                <div className="p-8 border-b border-white/5 bg-black/20 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-2xl font-display font-black text-white uppercase italic tracking-tight">Arena Ranking</h3>
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">Global performance leaderboard · 2026</p>
+                  </div>
+                  <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20">
+                    <Trophy className="w-6 h-6 text-amber-500" />
+                  </div>
                 </div>
                 
-                <div className="divide-y divide-white/5">
-                  {approvedParticipants
-                    .map(p => {
-                      // Calculate Performance Score (Elite Rating)
-                      let eliteScore = (p.stats?.points || 0) * 10; // Base points from wins/draws
-                      
-                      // Filter all matches where this player was involved and AI scanned stats exist
-                      const playerMatches = matches.filter(m => 
-                        (m.status === 'reported' || m.status === 'completed') && 
-                        (m.homeId === p.id || m.awayId === p.id) &&
-                        m.stats
-                      );
-
-                      playerMatches.forEach(m => {
-                        const isHome = m.homeId === p.id;
-                        const s = isHome ? m.stats?.home : m.stats?.away;
-                        if (s) {
-                          // Performance multipliers
-                          eliteScore += (isHome ? (m.homeScore || 0) : (m.awayScore || 0)) * 2; // Goals bonus
-                          eliteScore += (Number(s.possession) || 0) / 10; // Possession weight
-                          eliteScore += (Number(s.passAccuracy) || 0) / 20; // Pass accuracy weight
-                          
-                          if (s.shots && typeof s.shots === 'string') {
-                            const match = s.shots.match(/\((\d+)\)/);
-                            const onGoal = match ? parseInt(match[1]) : 0;
-                            eliteScore += onGoal * 1.5; // Precision shots bonus
-                          }
-                        }
-                      });
-
-                      return { ...p, eliteScore };
-                    })
-                    .filter(p => (p.stats?.played || 0) > 0)
-                    .sort((a, b) => (b.eliteScore || 0) - (a.eliteScore || 0))
-                    .map((p, i) => (
-                      <motion.div 
-                        initial={{ x: -20, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        transition={{ delay: i * 0.05 }}
-                        key={p.id} 
-                        className={`grid grid-cols-12 px-6 py-6 items-center hover:bg-white/5 transition-all group relative ${i === 0 ? 'bg-amber-500/5' : ''}`}
-                      >
-                        <div className="col-span-2 flex items-center justify-center relative">
-                          {i < 3 ? (
-                            <div className="relative">
-                              <span className={`text-3xl font-black italic ${i === 0 ? 'text-amber-500' : i === 1 ? 'text-zinc-300' : 'text-amber-700'}`}>{i + 1}</span>
-                              <div className="absolute -top-4 -left-4">
-                                <Trophy className={`w-4 h-4 ${i === 0 ? 'text-amber-500' : i === 1 ? 'text-zinc-300' : 'text-amber-700'} opacity-20`} />
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-xl font-black italic text-zinc-700">{i + 1}</span>
-                          )}
-                        </div>
+                <div className="p-2">
+                  <div className="grid grid-cols-12 px-6 py-4 text-zinc-500 font-black text-[9px] tracking-widest uppercase italic border-b border-white/5">
+                    <div className="col-span-1 text-center">RANK</div>
+                    <div className="col-span-5">ELITE PLAYER</div>
+                    <div className="col-span-2 text-center">RATING</div>
+                    <div className="col-span-2 text-center">RECORD</div>
+                    <div className="col-span-2 text-right pr-4">ARENA PTS</div>
+                  </div>
+                  
+                  <div className="divide-y divide-white/5">
+                    {approvedParticipants
+                      .map(p => {
+                        // Calculate Performance Score (Elite Rating)
+                        let eliteScore = (p.stats?.points || 0) * 10; // Base points from wins/draws
                         
-                        <div className="col-span-4 flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center border transition-all ${i === 0 ? 'bg-amber-500/20 border-amber-500/30' : 'bg-white/5 border-white/10'}`}>
-                            {p.photoURL ? (
-                              <img src={p.photoURL} alt="" className="w-full h-full object-cover rounded-xl" />
+                        // Filter all matches where this player was involved and AI scanned stats exist
+                        const playerMatches = matches.filter(m => 
+                          (m.status === 'reported' || m.status === 'completed') && 
+                          (m.homeId === p.id || m.awayId === p.id) &&
+                          m.stats
+                        );
+
+                        playerMatches.forEach(m => {
+                          const isHome = m.homeId === p.id;
+                          const s = isHome ? m.stats?.home : m.stats?.away;
+                          if (s) {
+                            // Performance multipliers
+                            eliteScore += (isHome ? (m.homeScore || 0) : (m.awayScore || 0)) * 2; // Goals bonus
+                            eliteScore += (Number(s.possession) || 0) / 10; // Possession weight
+                            eliteScore += (Number(s.passAccuracy) || 0) / 20; // Pass accuracy weight
+                            
+                            if (s.shots && typeof s.shots === 'string') {
+                              const match = s.shots.match(/\((\d+)\)/);
+                              const onGoal = match ? parseInt(match[1]) : 0;
+                              eliteScore += onGoal * 1.5; // Precision shots bonus
+                            }
+                          }
+                        });
+
+                        return { ...p, eliteScore };
+                      })
+                      .filter(p => (p.stats?.played || 0) > 0)
+                      .sort((a, b) => (b.eliteScore || 0) - (a.eliteScore || 0))
+                      .map((p, i) => (
+                        <motion.div 
+                          initial={{ x: -20, opacity: 0 }}
+                          animate={{ x: 0, opacity: 1 }}
+                          transition={{ delay: i * 0.05 }}
+                          key={p.id} 
+                          className={`grid grid-cols-12 px-6 py-6 items-center hover:bg-white/5 transition-all group relative ${i === 0 ? 'bg-amber-500/5' : ''}`}
+                        >
+                          <div className="col-span-1 flex items-center justify-center relative">
+                            {i < 3 ? (
+                              <div className="relative">
+                                <span className={`text-3xl font-black italic ${i === 0 ? 'text-amber-500' : i === 1 ? 'text-zinc-300' : 'text-amber-700'}`}>{i + 1}</span>
+                                <div className="absolute -top-4 -left-4">
+                                  <Trophy className={`w-4 h-4 ${i === 0 ? 'text-amber-500' : i === 1 ? 'text-zinc-300' : 'text-amber-700'} opacity-20`} />
+                                </div>
+                              </div>
                             ) : (
-                              <Users className={`w-6 h-6 ${i === 0 ? 'text-amber-500' : 'text-zinc-600'}`} />
+                              <span className="text-xl font-black italic text-zinc-700">{i + 1}</span>
                             )}
                           </div>
-                          <div className="flex flex-col min-w-0">
-                            <span className={`text-lg font-black italic truncate ${i === 0 ? 'text-amber-500' : 'text-white'}`}>{p.displayName}</span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">{p.teamName || 'NO CLUB'}</span>
-                              <div className="w-1 h-1 rounded-full bg-zinc-800"></div>
-                              <div className="flex items-center gap-1">
-                                {[...Array(5)].map((_, starI) => {
-                                  const rating = (p.eliteScore / (p.stats?.played || 1) / 100) * 5;
-                                  return (
-                                    <Zap key={starI} className={`w-2 h-2 ${starI < Math.round(rating || 1) ? 'text-amber-500' : 'text-zinc-800'}`} />
-                                  );
-                                })}
+                          
+                          <div className="col-span-5 flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center border transition-all flex-shrink-0 ${i === 0 ? 'bg-amber-500/20 border-amber-500/30' : 'bg-white/5 border-white/10'}`}>
+                              {p.photoURL ? (
+                                <img src={p.photoURL} alt="" className="w-full h-full object-cover rounded-xl" />
+                              ) : (
+                                <Users className={`w-6 h-6 ${i === 0 ? 'text-amber-500' : 'text-zinc-600'}`} />
+                              )}
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <span className={`text-lg font-black italic truncate ${i === 0 ? 'text-amber-500' : 'text-white'}`}>{p.displayName}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest truncate">{p.teamName || 'NO CLUB'}</span>
+                                <div className="w-1 h-1 rounded-full bg-zinc-800"></div>
+                                <div className="flex items-center gap-1">
+                                  {[...Array(5)].map((_, starI) => {
+                                    const rating = (p.eliteScore / (p.stats?.played || 1) / 100) * 5;
+                                    return (
+                                      <Zap key={starI} className={`w-2 h-2 ${starI < Math.round(rating || 1) ? 'text-amber-500' : 'text-zinc-800'}`} />
+                                    );
+                                  })}
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                        
-                        <div className="col-span-2 text-center">
-                          <div className="inline-flex flex-col items-center">
-                            <span className="text-sm font-black text-white italic">{p.ovr}</span>
-                            <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">OVR RATING</span>
+                          
+                          <div className="col-span-2 text-center">
+                            <div className="inline-flex flex-col items-center">
+                              <span className="text-sm font-black text-white italic">{p.ovr}</span>
+                              <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">OVR RATING</span>
+                            </div>
                           </div>
-                        </div>
-                        
-                        <div className="col-span-2 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <span className="text-xs font-black text-green-500 italic">{p.stats?.won || 0}W</span>
-                            <span className="text-[10px] text-zinc-700">/</span>
-                            <span className="text-xs font-black text-red-500 italic">{p.stats?.lost || 0}L</span>
+                          
+                          <div className="col-span-2 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <span className="text-xs font-black text-green-500 italic">{p.stats?.won || 0}W</span>
+                              <span className="text-[10px] text-zinc-700">/</span>
+                              <span className="text-xs font-black text-red-500 italic">{p.stats?.lost || 0}L</span>
+                            </div>
                           </div>
-                        </div>
-                        
-                        <div className="col-span-2 text-right pr-4">
-                          <div className="flex flex-col items-end">
-                            <span className="text-2xl font-black text-amber-500 italic leading-none">{Math.round(p.eliteScore || 0)}</span>
-                            <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mt-1">ARENA RATING</span>
+                          
+                          <div className="col-span-2 text-right pr-4">
+                            <div className="flex flex-col items-end">
+                              <span className="text-2xl font-black text-amber-500 italic leading-none">{Math.round(p.eliteScore || 0)}</span>
+                              <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mt-1">ARENA RATING</span>
+                            </div>
                           </div>
+                        </motion.div>
+                      ))}
+                      
+                    {approvedParticipants.filter(p => (p.stats?.played || 0) > 0).length === 0 && (
+                      <div className="p-24 text-center space-y-4">
+                        <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto border border-dashed border-white/10">
+                          <Trophy className="w-8 h-8 text-zinc-800" />
                         </div>
-                      </motion.div>
-                    ))}
-                    
-                  {approvedParticipants.filter(p => (p.stats?.played || 0) > 0).length === 0 && (
-                    <div className="p-24 text-center space-y-4">
-                      <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto border border-dashed border-white/10">
-                        <Trophy className="w-8 h-8 text-zinc-800" />
+                        <p className="text-[11px] font-black uppercase tracking-widest text-zinc-700 italic">Ranking data will appear once match results are verified by AI</p>
                       </div>
-                      <p className="text-[11px] font-black uppercase tracking-widest text-zinc-700 italic">Ranking data will appear once match results are verified by AI</p>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
