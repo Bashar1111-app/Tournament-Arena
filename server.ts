@@ -32,8 +32,8 @@ app.post('/api/analyze-result', async (req, res) => {
       throw new Error('Image data is required');
     }
 
-    // Use gemini-3.8-flash as the primary high-performance model
-    let modelName = "gemini-3.8-flash";
+    // Use gemini-1.5-flash as the primary high-performance stable model
+    let modelName = "gemini-1.5-flash";
     
     if (attempt > 0) {
       console.log(`Retrying with model: ${modelName} (Attempt ${attempt})`);

@@ -60,6 +60,12 @@ export const ResultReportModal: React.FC<ResultReportModalProps> = ({
           }),
         });
         
+        if (response.status === 404) {
+          setError("Backend Error: This hosting provider (e.g. GitHub Pages) does not support AI Logic. Please use the official AI Studio link.");
+          setIsAnalyzing(false);
+          return;
+        }
+
         const data = await response.json();
         
         if (!response.ok) {
