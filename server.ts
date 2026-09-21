@@ -32,12 +32,10 @@ app.post('/api/analyze-result', async (req, res) => {
       throw new Error('Image data is required');
     }
 
-    // Use gemini-1.5-flash as the primary high-performance stable model
-    let modelName = "gemini-1.5-flash";
+    // Use gemini-3.8-flash as the primary high-performance model for Antigravity SDK
+    const modelName = "gemini-3.8-flash";
     
-    if (attempt > 0) {
-      console.log(`Retrying with model: ${modelName} (Attempt ${attempt})`);
-    }
+    console.log(`Analyzing match result with model: ${modelName} (Attempt ${attempt + 1})`);
 
     const prompt = `You are the Elite Arena Referee AI for FC Mobile. Analyze this match result screenshot.
     Extract details for players: "${homePlayerName}" (Home) and "${awayPlayerName}" (Away).
