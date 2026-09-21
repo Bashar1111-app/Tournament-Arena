@@ -27,6 +27,80 @@ export const ResultReportModal: React.FC<ResultReportModalProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [nameMatchInfo, setNameMatchInfo] = useState<{ match: boolean; home: string; away: string; isValidImage: boolean } | null>(null);
+
+  const [performanceStats, setPerformanceStats] = useState<any>(null);
+
+  const analyzeImage = async (file: File) => {
+    setIsAnalyzing(true);
+    setError(null);
+    setNameMatchInfo(null);
+    setPerformanceStats(null);
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        const response = await fetch('/api/analyze-result', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            imageBase64: base64,
+            homePlayerName,
+            awayPlayerName
+          }),
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          setError(data.error || "Failed to analyze image. Please try again.");
+          setIsAnalyzing(false);
+          return;
+        }
+
+        if (data.isResultScreenshot === false) {
+          setError("Invalid Screenshot! Please upload a valid game result screen.");
+          setNameMatchInfo({
+            match: false,
+            home: '',
+            away: '',
+            isValidImage: false
+          });
+          setIsAnalyzing(false);
+          return;
+        }
+
+        if (data.homeScore !== null && data.homeScore !== undefined && data.awayScore !== null && data.awayScore !== undefined) {
+          setHomeScore(data.homeScore.toString());
+          setAwayScore(data.awayScore.toString());
+          setPerformanceStats(data.stats);
+          
+          setNameMatchInfo({
+            match: !!data.isNameMatch,
+            home: data.homeNameFound || 'N/A',
+            away: data.awayNameFound || 'N/A',
+            isValidImage: true
+          });
+        } else {
+          console.warn("AI could not extract data clearly:", data);
+          setError("AI could not read scores. Please enter them manually, but ensure image is correct.");
+          setNameMatchInfo({
+            match: !!data.isNameMatch,
+            home: data.homeNameFound || 'N/A',
+            away: data.awayNameFound || 'N/A',
+            isValidImage: true
+          });
+        }
+        setIsAnalyzing(false);
+      };
+    } catch (err) {
+      console.error("AI Analysis error:", err);
+      setIsAnalyzing(false);
+    }
+  };
+
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -47,8 +121,11 @@ export const ResultReportModal: React.FC<ResultReportModalProps> = ({
       setScreenshot(compressedFile);
       setPreviewUrl(URL.createObjectURL(compressedFile));
       setError(null);
+      
+      // Trigger AI Analysis
+      analyzeImage(compressedFile);
     } catch (err) {
-      console.error("Compression error:", err);
+      console.error("Processing error:", err);
       setError('Failed to process image');
     }
   };
@@ -73,7 +150,8 @@ export const ResultReportModal: React.FC<ResultReportModalProps> = ({
           screenshotUrl: base64data,
           status: 'reported',
           reportedBy: auth.currentUser?.uid,
-          updatedAt: serverTimestamp()
+          updatedAt: serverTimestamp(),
+          stats: performanceStats
         });
         
         onClose();
@@ -151,8 +229,17 @@ export const ResultReportModal: React.FC<ResultReportModalProps> = ({
                 <>
                   <img src={previewUrl} alt="Preview" className="w-full h-full object-cover opacity-50" />
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-                    <CheckCircle2 className="w-10 h-10 text-amber-500 mb-2" />
-                    <span className="text-[11px] font-black uppercase tracking-widest">Image Optimized</span>
+                    {isAnalyzing ? (
+                      <>
+                        <Loader2 className="w-10 h-10 text-amber-500 mb-2 animate-spin" />
+                        <span className="text-[11px] font-black uppercase tracking-widest animate-pulse">AI Scanning Result...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-10 h-10 text-amber-500 mb-2" />
+                        <span className="text-[11px] font-black uppercase tracking-widest">Image Optimized & Scanned</span>
+                      </>
+                    )}
                   </div>
                 </>
               ) : (
@@ -177,13 +264,44 @@ export const ResultReportModal: React.FC<ResultReportModalProps> = ({
             <p className="text-red-500 text-[10px] font-black uppercase tracking-widest text-center">{error}</p>
           )}
 
+          {nameMatchInfo && nameMatchInfo.isValidImage && (
+            <div className={`p-4 rounded-2xl border ${nameMatchInfo.match ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
+              <div className="flex items-center gap-3 mb-2">
+                <div className={`p-1.5 rounded-lg ${nameMatchInfo.match ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
+                  {nameMatchInfo.match ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Loader2 className="w-4 h-4 text-red-500" />}
+                </div>
+                <span className={`text-[11px] font-black uppercase tracking-widest ${nameMatchInfo.match ? 'text-green-500' : 'text-red-500'}`}>
+                  {nameMatchInfo.match ? 'Identity Verified' : 'Identity Mismatch Detected'}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">
+                  Found in Screen: <span className="text-white italic ml-1">{nameMatchInfo.home || 'N/A'} vs {nameMatchInfo.away || 'N/A'}</span>
+                </p>
+                {!nameMatchInfo.match && (
+                  <p className="text-[9px] font-medium text-red-400 italic">Warning: The names in the screenshot do not match this match's players.</p>
+                )}
+              </div>
+            </div>
+          )}
+
           <button 
             type="submit"
-            disabled={isUploading || !screenshot}
-            className="w-full h-16 bg-amber-500 text-black rounded-[24px] font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-amber-500/10 italic hover:bg-amber-400 disabled:opacity-50 flex items-center justify-center gap-3"
+            disabled={isUploading || !screenshot || isAnalyzing || (nameMatchInfo !== null && (!nameMatchInfo.match || !nameMatchInfo.isValidImage))}
+            className={`w-full h-16 rounded-[24px] font-black uppercase tracking-[0.2em] text-xs shadow-xl italic transition-all flex items-center justify-center gap-3 ${
+              (nameMatchInfo !== null && (!nameMatchInfo.match || !nameMatchInfo.isValidImage))
+                ? 'bg-red-500/20 text-red-500 border border-red-500/50 cursor-not-allowed'
+                : 'bg-amber-500 text-black hover:bg-amber-400 disabled:opacity-50'
+            }`}
           >
             {isUploading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
+            ) : isAnalyzing ? (
+              'Verifying with AI...'
+            ) : (nameMatchInfo !== null && !nameMatchInfo.isValidImage) ? (
+              'Invalid Screenshot'
+            ) : (nameMatchInfo !== null && !nameMatchInfo.match) ? (
+              'Player Mismatch'
             ) : (
               'Deploy Final Result'
             )}

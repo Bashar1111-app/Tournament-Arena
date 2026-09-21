@@ -35,7 +35,7 @@ service cloud.firestore {
 
     function isValidParticipant(data) {
       return data.keys().hasAll(['userId', 'displayName', 'registeredAt', 'status']) &&
-             data.keys().hasOnly(['userId', 'displayName', 'teamName', 'ovr', 'group', 'phone', 'registeredAt', 'stats', 'status', 'fbLink', 'gameUid']) &&
+             data.keys().hasOnly(['userId', 'displayName', 'teamName', 'ovr', 'group', 'phone', 'registeredAt', 'stats', 'status', 'fbLink', 'gameUid', 'photoURL']) &&
              data.userId == request.auth.uid &&
              data.status == 'pending' &&
              data.registeredAt == request.time;
@@ -85,8 +85,8 @@ service cloud.firestore {
         allow update: if isSignedIn() && (
           isAdmin() || 
           request.auth.uid == get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.createdBy ||
-          // Allow approved participants to update stats (for self-service match completion)
-          (get(/databases/$(database)/documents/tournaments/$(tournamentId)/participants/$(request.auth.uid)).data.status == 'approved')
+          // Allow approved participants to update their own stats/data if needed
+          request.auth.uid == participantId
         );
         allow delete: if isAdmin() || request.auth.uid == get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.createdBy || (existing().userId == request.auth.uid && existing().status == 'pending');
       }

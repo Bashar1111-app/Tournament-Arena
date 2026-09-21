@@ -65,10 +65,16 @@ export const MatchChat: React.FC<MatchChatProps> = ({
     if (!newMessage.trim() || !auth.currentUser) return;
 
     try {
+      const userParticipant = participants.find(p => p.userId === auth.currentUser?.uid);
+      const senderName = userParticipant?.displayName || auth.currentUser.displayName || 'Player';
+      const senderPhoto = userParticipant?.photoURL || auth.currentUser.photoURL || '';
+
       const chatRef = ref(rtdb, `chats/${tournamentId}/${matchId}`);
       const newMessageRef = push(chatRef);
       await set(newMessageRef, {
         senderId: auth.currentUser.uid,
+        senderName,
+        senderPhoto,
         text: newMessage.trim(),
         createdAt: serverTimestamp()
       });
@@ -132,23 +138,51 @@ export const MatchChat: React.FC<MatchChatProps> = ({
               <p className="text-[11px] font-black uppercase tracking-widest text-zinc-500">No messages yet. Start the strategy talk.</p>
             </div>
           ) : (
-            messages.map((msg) => (
-              <div 
-                key={msg.id}
-                className={`flex flex-col ${msg.senderId === auth.currentUser?.uid ? 'items-end' : 'items-start'}`}
-              >
-                <div className={`max-w-[80%] rounded-2xl p-3 text-[13px] font-medium leading-relaxed ${
-                  msg.senderId === auth.currentUser?.uid 
-                    ? 'bg-amber-500 text-black rounded-tr-none' 
-                    : 'bg-white/5 text-white border border-white/5 rounded-tl-none'
-                }`}>
-                  {msg.text}
+            messages.map((msg) => {
+              const isMe = msg.senderId === auth.currentUser?.uid;
+              const senderPhoto = msg.senderPhoto || participants.find(p => p.userId === msg.senderId)?.photoURL;
+              const senderName = msg.senderName || participants.find(p => p.userId === msg.senderId)?.displayName || 'Player';
+              
+              return (
+                <div 
+                  key={msg.id} 
+                  className={`flex gap-2 mb-4 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
+                >
+                  {!isMe && (
+                    <div className="flex-shrink-0 mt-auto">
+                      {senderPhoto ? (
+                        <img 
+                          src={senderPhoto} 
+                          alt="" 
+                          className="w-8 h-8 rounded-full border border-white/10 shadow-sm object-cover"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/5">
+                          <Shield className="w-4 h-4 text-zinc-500" />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className={`flex flex-col max-w-[75%] ${isMe ? 'items-end' : 'items-start'}`}>
+                    {!isMe && (
+                      <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1 ml-1 italic">
+                        {senderName}
+                      </span>
+                    )}
+                    <div className={`rounded-2xl px-4 py-2.5 text-[13px] font-medium leading-relaxed ${
+                      isMe 
+                        ? 'bg-amber-500 text-black rounded-tr-none shadow-lg shadow-amber-500/10' 
+                        : 'bg-white/10 text-white border border-white/5 rounded-tl-none'
+                    }`}>
+                      {msg.text}
+                    </div>
+                    <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mt-1 px-1">
+                      {formatTime(msg.createdAt)}
+                    </span>
+                  </div>
                 </div>
-                <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mt-1 px-1">
-                  {getPlayerName(msg.senderId)} • {formatTime(msg.createdAt)}
-                </span>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 

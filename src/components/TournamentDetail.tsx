@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { collection, doc, onSnapshot, query, setDoc, serverTimestamp, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
-import { db, OperationType, handleFirestoreError } from '../lib/firebase';
+import { ref, onValue } from 'firebase/database';
+import { db, rtdb, OperationType, handleFirestoreError } from '../lib/firebase';
 import { useFirebase } from '../contexts/FirebaseContext';
 import { Users, Plus, Trophy, Trash2, Edit3, X, Save, UserPlus, ChevronRight, LayoutGrid, GitMerge, ListOrdered, Tv, Shield, Zap, CheckCircle, Clock, FileText, ExternalLink, MessageSquare, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -67,8 +68,49 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
-  const [activeTab, setActiveTab] = useState<'group' | 'knockout' | 'players' | 'admin' | 'requests' | 'rules'>(initialTab || 'group');
-  const [activeMatchChat, setActiveMatchChat] = useState<{ matchId: string, homeName: string, awayName: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<'group' | 'knockout' | 'players' | 'ranking' | 'admin' | 'requests' | 'rules'>(initialTab || 'group');
+  const [activeMatchChat, setActiveMatchChat] = useState<{ matchId: string, homeName: string, awayName: string, isGlobal?: boolean } | null>(null);
+  const [lastSeenMessages, setLastSeenMessages] = useState<Record<string, number>>(() => {
+    const saved = localStorage.getItem(`lastSeen_${tournamentId}`);
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  const [latestMessages, setLatestMessages] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    // Listen for latest messages in all relevant chat rooms to show green dot
+    const chatRooms = [
+      `chats/${tournamentId}/global`,
+      ...matches.map(m => `chats/${tournamentId}/${m.id}`)
+    ];
+
+    const unsubscribers = chatRooms.map(path => {
+      const chatRef = ref(rtdb, path);
+      return onValue(chatRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          const msgs = Object.values(data) as any[];
+          const latest = Math.max(...msgs.map(m => m.createdAt || 0));
+          setLatestMessages(prev => ({ ...prev, [path]: latest }));
+        }
+      });
+    });
+
+    return () => unsubscribers.forEach(unsub => unsub());
+  }, [tournamentId, matches]);
+
+  const updateLastSeen = (chatPath: string) => {
+    const now = Date.now();
+    const updated = { ...lastSeenMessages, [chatPath]: now };
+    setLastSeenMessages(updated);
+    localStorage.setItem(`lastSeen_${tournamentId}`, JSON.stringify(updated));
+  };
+
+  const hasUnread = (chatPath: string) => {
+    const latest = latestMessages[chatPath] || 0;
+    const lastSeen = lastSeenMessages[chatPath] || 0;
+    return latest > lastSeen;
+  };
   const [reportingMatch, setReportingMatch] = useState<{ matchId: string, homeName: string, awayName: string } | null>(null);
   const [viewingScreenshot, setViewingScreenshot] = useState<string | null>(null);
 
@@ -125,11 +167,18 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
             {(isParticipant || isAdmin || isOwner) && match.status !== 'completed' && (
               <div className="flex items-center gap-1.5">
                 <button 
-                  onClick={() => onChat(match.id, home?.displayName || 'TBD', away?.displayName || 'TBD')}
-                  className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-amber-500 border border-white/5"
+                  onClick={() => {
+                    onChat(match.id, home?.displayName || 'TBD', away?.displayName || 'TBD');
+                    const chatPath = `chats/${tournamentId}/${match.id}`;
+                    updateLastSeen(chatPath);
+                  }}
+                  className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-amber-500 border border-white/5 relative"
                   title="Team Chat"
                 >
                   <MessageSquare className="w-4 h-4" />
+                  {hasUnread(`chats/${tournamentId}/${match.id}`) && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-black animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                  )}
                 </button>
                 {isParticipant && match.status === 'scheduled' && (
                   <button 
@@ -280,6 +329,7 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
       await setDoc(doc(db, 'tournaments', tournamentId, 'participants', user.uid), {
         userId: user.uid,
         displayName: profile.gameName,
+        photoURL: profile.photoURL || user.photoURL || '',
         teamName: '',
         ovr: profile.ovr,
         phone: profile.phone,
@@ -404,7 +454,22 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
       {/* Tournament Sub-Hero Overlay */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-2">
         <div className="flex flex-col">
-          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500 italic">FC Arena Invitational · 2026</span>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500 italic">FC Arena Invitational · 2026</span>
+            <button 
+              onClick={() => {
+                setActiveMatchChat({ matchId: 'global', homeName: 'TOURNAMENT', awayName: 'GLOBAL CHAT', isGlobal: true });
+                updateLastSeen(`chats/${tournamentId}/global`);
+              }}
+              className="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 rounded-lg transition-all text-amber-500 border border-amber-500/20 relative group"
+              title="Global Tournament Chat"
+            >
+              <MessageSquare className="w-3 h-3" />
+              {hasUnread(`chats/${tournamentId}/global`) && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full border border-black animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+              )}
+            </button>
+          </div>
           <h1 className="font-display text-[32px] font-black text-white uppercase italic tracking-tighter leading-none mt-1">
             {activeTab === 'group' ? 'Group Stage' : activeTab === 'knockout' ? 'Knockout Stage' : activeTab === 'players' ? 'Athletes' : activeTab === 'admin' ? 'Command Center' : 'Registration'}
           </h1>
@@ -451,7 +516,8 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
         {[
           { id: 'group', label: 'Arena', icon: LayoutGrid },
           { id: 'knockout', label: 'Bracket', icon: GitMerge },
-          { id: 'players', label: 'Standings', icon: ListOrdered },
+          { id: 'ranking', label: 'Ranking', icon: Trophy },
+          { id: 'players', label: 'Athletes', icon: ListOrdered },
           { id: 'rules', label: 'Rules', icon: FileText },
           ...(isAdmin || isOwner ? [{ id: 'requests', label: `Requests (${pendingRequests.length})`, icon: UserPlus }] : []),
           ...(isAdmin || isOwner ? [{ id: 'admin', label: 'Control', icon: Shield }] : [])
@@ -593,43 +659,149 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
           </motion.div>
         )}
 
-        {activeTab === 'rules' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl mx-auto">
-            <div className="bg-[#111827] border border-white/5 rounded-[40px] p-10 shadow-2xl relative overflow-hidden rgb-border">
-              <div className="absolute top-0 right-0 p-8 opacity-5">
-                <FileText className="w-32 h-32 text-amber-500" />
+        {activeTab === 'ranking' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            <div className="bg-white/5 border border-white/5 rounded-[40px] overflow-hidden shadow-2xl rgb-border">
+              <div className="p-8 border-b border-white/5 bg-black/20 flex items-center justify-between">
+                <div>
+                  <h3 className="text-2xl font-display font-black text-white uppercase italic tracking-tight">Arena Ranking</h3>
+                  <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mt-1">Global performance leaderboard · 2026</p>
+                </div>
+                <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20">
+                  <Trophy className="w-6 h-6 text-amber-500" />
+                </div>
               </div>
               
-              <div className="relative z-10 space-y-8">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/20">
-                    <Shield className="w-6 h-6 text-amber-500" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-black text-white uppercase italic tracking-tight">Arena Protocol</h3>
-                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest italic">Official Guidelines & Rules</p>
-                  </div>
+              <div className="p-2">
+                <div className="grid grid-cols-12 px-6 py-4 text-zinc-500 font-black text-[9px] tracking-widest uppercase italic border-b border-white/5">
+                  <div className="col-span-2 text-center">RANK</div>
+                  <div className="col-span-4">ELITE PLAYER</div>
+                  <div className="col-span-2 text-center">RATING</div>
+                  <div className="col-span-2 text-center">RECORD</div>
+                  <div className="col-span-2 text-right pr-4">ARENA PTS</div>
                 </div>
+                
+                <div className="divide-y divide-white/5">
+                  {approvedParticipants
+                    .map(p => {
+                      // Calculate Performance Score (Elite Rating)
+                      let eliteScore = (p.stats?.points || 0) * 10; // Base points from wins/draws
+                      
+                      // Filter all matches where this player was involved and AI scanned stats exist
+                      const playerMatches = matches.filter(m => 
+                        (m.status === 'reported' || m.status === 'completed') && 
+                        (m.homeId === p.id || m.awayId === p.id) &&
+                        m.stats
+                      );
 
-                <div className="prose prose-invert max-w-none">
-                  <div className="p-8 bg-black/40 rounded-3xl border border-white/5 min-h-[300px]">
-                    {tournament.rules ? (
-                      <p className="text-zinc-400 text-sm italic leading-relaxed whitespace-pre-wrap">
-                        {tournament.rules}
-                      </p>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full py-20 text-center">
-                        <Clock className="w-10 h-10 text-zinc-800 mb-4" />
-                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-700 italic">No specific rules have been defined for this arena.</p>
+                      playerMatches.forEach(m => {
+                        const isHome = m.homeId === p.id;
+                        const s = isHome ? m.stats?.home : m.stats?.away;
+                        if (s) {
+                          // Performance multipliers
+                          eliteScore += (isHome ? (m.homeScore || 0) : (m.awayScore || 0)) * 2; // Goals bonus
+                          eliteScore += (Number(s.possession) || 0) / 10; // Possession weight
+                          eliteScore += (Number(s.passAccuracy) || 0) / 20; // Pass accuracy weight
+                          
+                          if (s.shots && typeof s.shots === 'string') {
+                            const match = s.shots.match(/\((\d+)\)/);
+                            const onGoal = match ? parseInt(match[1]) : 0;
+                            eliteScore += onGoal * 1.5; // Precision shots bonus
+                          }
+                        }
+                      });
+
+                      return { ...p, eliteScore };
+                    })
+                    .filter(p => (p.stats?.played || 0) > 0)
+                    .sort((a, b) => (b.eliteScore || 0) - (a.eliteScore || 0))
+                    .map((p, i) => (
+                      <motion.div 
+                        initial={{ x: -20, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        transition={{ delay: i * 0.05 }}
+                        key={p.id} 
+                        className={`grid grid-cols-12 px-6 py-6 items-center hover:bg-white/5 transition-all group relative ${i === 0 ? 'bg-amber-500/5' : ''}`}
+                      >
+                        <div className="col-span-2 flex items-center justify-center relative">
+                          {i < 3 ? (
+                            <div className="relative">
+                              <span className={`text-3xl font-black italic ${i === 0 ? 'text-amber-500' : i === 1 ? 'text-zinc-300' : 'text-amber-700'}`}>{i + 1}</span>
+                              <div className="absolute -top-4 -left-4">
+                                <Trophy className={`w-4 h-4 ${i === 0 ? 'text-amber-500' : i === 1 ? 'text-zinc-300' : 'text-amber-700'} opacity-20`} />
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xl font-black italic text-zinc-700">{i + 1}</span>
+                          )}
+                        </div>
+                        
+                        <div className="col-span-4 flex items-center gap-4">
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center border transition-all ${i === 0 ? 'bg-amber-500/20 border-amber-500/30' : 'bg-white/5 border-white/10'}`}>
+                            {p.photoURL ? (
+                              <img src={p.photoURL} alt="" className="w-full h-full object-cover rounded-xl" />
+                            ) : (
+                              <Users className={`w-6 h-6 ${i === 0 ? 'text-amber-500' : 'text-zinc-600'}`} />
+                            )}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className={`text-lg font-black italic truncate ${i === 0 ? 'text-amber-500' : 'text-white'}`}>{p.displayName}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">{p.teamName || 'NO CLUB'}</span>
+                              <div className="w-1 h-1 rounded-full bg-zinc-800"></div>
+                              <div className="flex items-center gap-1">
+                                {[...Array(5)].map((_, starI) => {
+                                  const rating = (p.eliteScore / (p.stats?.played || 1) / 100) * 5;
+                                  return (
+                                    <Zap key={starI} className={`w-2 h-2 ${starI < Math.round(rating || 1) ? 'text-amber-500' : 'text-zinc-800'}`} />
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="col-span-2 text-center">
+                          <div className="inline-flex flex-col items-center">
+                            <span className="text-sm font-black text-white italic">{p.ovr}</span>
+                            <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">OVR RATING</span>
+                          </div>
+                        </div>
+                        
+                        <div className="col-span-2 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <span className="text-xs font-black text-green-500 italic">{p.stats?.won || 0}W</span>
+                            <span className="text-[10px] text-zinc-700">/</span>
+                            <span className="text-xs font-black text-red-500 italic">{p.stats?.lost || 0}L</span>
+                          </div>
+                        </div>
+                        
+                        <div className="col-span-2 text-right pr-4">
+                          <div className="flex flex-col items-end">
+                            <span className="text-2xl font-black text-amber-500 italic leading-none">{Math.round(p.eliteScore || 0)}</span>
+                            <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mt-1">ARENA RATING</span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                    
+                  {approvedParticipants.filter(p => (p.stats?.played || 0) > 0).length === 0 && (
+                    <div className="p-24 text-center space-y-4">
+                      <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto border border-dashed border-white/10">
+                        <Trophy className="w-8 h-8 text-zinc-800" />
                       </div>
-                    )}
-                  </div>
+                      <p className="text-[11px] font-black uppercase tracking-widest text-zinc-700 italic">Ranking data will appear once match results are verified by AI</p>
+                    </div>
+                  )}
                 </div>
-
-                <div className="flex items-center gap-3 p-5 bg-amber-500/5 border border-amber-500/10 rounded-2xl">
-                  <Zap className="w-5 h-5 text-amber-500" />
-                  <p className="text-[10px] font-black text-amber-500/80 uppercase tracking-widest italic">Failure to comply with protocol may result in immediate arena disqualification.</p>
-                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 bg-amber-500/5 border border-amber-500/10 rounded-3xl flex items-start gap-4">
+              <Zap className="w-6 h-6 text-amber-500 mt-1" />
+              <div>
+                <p className="text-[11px] font-black text-amber-500 uppercase tracking-widest italic mb-1">How Ranking Works</p>
+                <p className="text-[10px] font-medium text-amber-500/60 leading-relaxed italic">The Arena Ranking system calculates your standing based on verified AI match results. Win matches to earn 3 points, draws earn 1 point. Top ranked players qualify for Elite seasonal rewards.</p>
               </div>
             </div>
           </motion.div>
