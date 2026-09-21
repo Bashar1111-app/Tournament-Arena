@@ -32,44 +32,35 @@ app.post('/api/analyze-result', async (req, res) => {
       throw new Error('Image data is required');
     }
 
-    // Cycle through models on failure
-    let modelName = "gemini-flash-latest";
-    if (attempt === 1) modelName = "gemini-3.8-flash";
-    if (attempt >= 2) modelName = "gemini-3.1-flash-lite";
+    // Use gemini-3.8-flash as the primary high-performance model
+    let modelName = "gemini-3.8-flash";
     
     if (attempt > 0) {
       console.log(`Retrying with model: ${modelName} (Attempt ${attempt})`);
     }
 
-    const prompt = `Analyze this image for FC Mobile match result:
-    - Is it a game result screen?
-    - Scores for "${homePlayerName}" and "${awayPlayerName}"?
-    - Names match?
-    - Statistics for both players:
-        * Shots (On Goal)
-        * Possession %
-        * Pass Accuracy %
-        * Fouls
-        * Offsides
-    Return JSON ONLY: 
+    const prompt = `You are the Elite Arena Referee AI for FC Mobile. Analyze this match result screenshot.
+    Extract details for players: "${homePlayerName}" (Home) and "${awayPlayerName}" (Away).
+    
+    Return JSON: 
     {
-      "isResultScreenshot": bool, 
-      "homeScore": num, 
-      "awayScore": num, 
-      "homeNameFound": str, 
-      "awayNameFound": str, 
-      "isNameMatch": bool, 
-      "confidence": num,
+      "isResultScreenshot": boolean, 
+      "homeScore": number, 
+      "awayScore": number, 
+      "homeNameFound": string, 
+      "awayNameFound": string, 
+      "isNameMatch": boolean, 
+      "confidence": number,
       "stats": {
-        "home": { "shots": str, "possession": num, "passAccuracy": num, "fouls": num, "offsides": num },
-        "away": { "shots": str, "possession": num, "passAccuracy": num, "fouls": num, "offsides": num }
+        "home": { "shots": string, "possession": number, "passAccuracy": number, "fouls": number, "offsides": number },
+        "away": { "shots": string, "possession": number, "passAccuracy": number, "fouls": number, "offsides": number }
       }
     }`;
 
     const imagePart = {
       inlineData: {
         mimeType: "image/jpeg",
-        data: imageBase64.split(',')[1] || imageBase64,
+        data: imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64,
       },
     };
 
@@ -78,10 +69,12 @@ app.post('/api/analyze-result', async (req, res) => {
       contents: { parts: [imagePart, { text: prompt }] },
       config: {
         responseMimeType: "application/json",
+        temperature: 0.1
       }
     });
 
-    return JSON.parse(response.text || '{}');
+    if (!response.text) throw new Error('Empty AI response');
+    return JSON.parse(response.text.trim());
   };
 
   while (attempt <= maxRetries) {

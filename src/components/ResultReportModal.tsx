@@ -38,10 +38,10 @@ export const ResultReportModal: React.FC<ResultReportModalProps> = ({
     setNameMatchInfo(null);
     setPerformanceStats(null);
     try {
-      // Compress image before analysis
+      // Compress image before analysis - Increased quality for AI accuracy
       const options = {
-        maxSizeMB: 0.3, // Max 300KB
-        maxWidthOrHeight: 1280,
+        maxSizeMB: 0.8, // Increased to 800KB for better text clarity
+        maxWidthOrHeight: 1920, // Full HD resolution
         useWebWorker: true
       };
       
@@ -120,8 +120,8 @@ export const ResultReportModal: React.FC<ResultReportModalProps> = ({
 
     try {
       const options = {
-        maxSizeMB: 0.1, // 100KB target
-        maxWidthOrHeight: 1024,
+        maxSizeMB: 0.5, // Increased to 500KB for visible quality
+        maxWidthOrHeight: 1920,
         useWebWorker: true,
       };
       
@@ -226,7 +226,7 @@ export const ResultReportModal: React.FC<ResultReportModalProps> = ({
 
           {/* Screenshot Upload */}
           <div className="space-y-3">
-            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block px-1">Evidence Screenshot (Auto-compressed to 100KB)</label>
+            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block px-1">Evidence Screenshot (HD Auto-Optimization)</label>
             <div 
               onClick={() => document.getElementById('screenshot-upload')?.click()}
               className={`relative h-48 rounded-[32px] border-2 border-dashed transition-all flex flex-col items-center justify-center gap-3 cursor-pointer overflow-hidden ${
