@@ -21,7 +21,7 @@ jobs:
       run: npm install
 
     - name: Build web application
-      run: npm run build
+      run: npx vite build
       env:
         NODE_ENV: production
 
@@ -34,11 +34,11 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Install Capacitor CLI
-      run: npm install -g @capacitor/cli
-
     - name: Add Android platform
-      run: npx cap add android
+      run: |
+        if [ ! -d "android" ]; then
+          npx cap add android
+        fi
 
     - name: Sync Capacitor
       run: npx cap sync
