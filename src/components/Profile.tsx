@@ -117,6 +117,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
     // 2. Publisher/Participant Stats & Tournaments Sync
     let tournamentsUnsubscribe: (() => void) | null = null;
     let joinedUnsubscribe: (() => void) | null = null;
+    let joinedDetailsUnsubscribe: (() => void) | null = null;
 
     if (userData?.role === 'publisher') {
       const q = query(collection(db, 'tournaments'), where('createdBy', '==', user.uid));
@@ -130,9 +131,12 @@ export function Profile({ onSelectTournament }: ProfileProps) {
     joinedUnsubscribe = onSnapshot(joinedQ, (joinedSnapshot) => {
       const tournamentIds = Array.from(new Set(joinedSnapshot.docs.map(doc => doc.ref.parent.parent?.id).filter(id => !!id)));
       
+      // Unsubscribe from previous details listener if any
+      if (joinedDetailsUnsubscribe) joinedDetailsUnsubscribe();
+
       if (tournamentIds.length > 0) {
         const tourneysQ = query(collection(db, 'tournaments'), where('__name__', 'in', tournamentIds.slice(0, 10)));
-        onSnapshot(tourneysQ, (tourneysSnapshot) => {
+        joinedDetailsUnsubscribe = onSnapshot(tourneysQ, (tourneysSnapshot) => {
           setJoinedTournaments(tourneysSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         }, (err) => console.warn("Joined tournaments details listener error:", err));
       } else {
@@ -144,6 +148,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
       profileUnsubscribe();
       if (tournamentsUnsubscribe) tournamentsUnsubscribe();
       if (joinedUnsubscribe) joinedUnsubscribe();
+      if (joinedDetailsUnsubscribe) joinedDetailsUnsubscribe();
     };
   }, [user, userData]);
 
@@ -407,27 +412,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
         </div>
       </div>
 
-      {isAdmin && (
-        <div className="relative overflow-hidden rounded-[56px] bg-[#111827] border border-amber-500/10 p-12 space-y-10 shadow-[0_0_40px_rgba(245,158,11,0.05)] rgb-border">
-          <div className="absolute top-0 right-0 p-12 opacity-[0.02]">
-            <Bell className="w-64 h-64 text-amber-500" />
-          </div>
-          <div className="flex items-center gap-4 relative z-10">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
-              <Bell className="w-6 h-6 text-amber-500" />
-            </div>
-            <div>
-              <h3 className="text-2xl font-black text-white uppercase italic leading-none">Command Broadcast</h3>
-              <p className="text-[9px] font-black text-amber-500 uppercase tracking-[0.3em] mt-1 italic">Level 5 Clearance Required</p>
-            </div>
-          </div>
-          <div className="relative z-10">
-            <AdminNotificationManager />
-          </div>
-        </div>
-      )}
-
-        {/* Publisher: My Tournaments Section */}
+      {/* Publisher: My Tournaments Section */}
         {userData?.role === 'publisher' && myTournaments.length > 0 && (
           <div className="md:col-span-3 space-y-8 mt-12 mb-12">
             <div className="flex items-center justify-between px-2">
@@ -445,7 +430,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {myTournaments.map((t) => (
                 <motion.div
-                  key={t.id}
+                  key={`my-${t.id}`}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   whileHover={{ y: -5 }}
@@ -497,7 +482,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {joinedTournaments.map((t) => (
                 <motion.div
-                  key={t.id}
+                  key={`joined-${t.id}`}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   whileHover={{ y: -5 }}

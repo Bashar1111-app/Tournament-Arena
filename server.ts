@@ -32,7 +32,7 @@ app.post('/api/analyze-result', async (req, res) => {
       throw new Error('Image data is required');
     }
 
-    // Use gemini-3.8-flash as the primary high-performance model for Antigravity SDK
+    // Use gemini-3.8-flash as the primary high-performance model
     const modelName = "gemini-3.8-flash";
     
     console.log(`Analyzing match result with model: ${modelName} (Attempt ${attempt + 1})`);
@@ -80,19 +80,21 @@ app.post('/api/analyze-result', async (req, res) => {
       const result = await performAnalysis();
       return res.json(result);
     } catch (error: any) {
-      const isServiceUnavailable = error?.message?.includes('503') || error?.status === 503 || error?.message?.includes('high demand') || error?.message?.includes('overloaded');
+      const errorMsg = error?.message || '';
+      const isServiceUnavailable = errorMsg.includes('503') || error?.status === 503 || errorMsg.includes('high demand') || errorMsg.includes('overloaded') || errorMsg.includes('UNAVAILABLE');
       
       if (isServiceUnavailable && attempt < maxRetries) {
         attempt++;
-        const delay = (1500 * attempt) + (Math.random() * 1000); // Backoff with jitter
-        console.log(`Gemini busy (503), retrying in ${Math.round(delay)}ms... Attempt ${attempt}`);
+        // Longer exponential backoff for 503 errors
+        const delay = (2000 * Math.pow(1.5, attempt)) + (Math.random() * 1000); 
+        console.log(`Gemini busy (503/High Demand), retrying in ${Math.round(delay)}ms... Attempt ${attempt}`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
 
       console.error('Gemini Analysis Error:', error);
       return res.status(error?.status || 500).json({ 
-        error: isServiceUnavailable ? 'AI service is temporarily busy. Please wait a moment and try again.' : 'Failed to analyze image' 
+        error: isServiceUnavailable ? 'AI servers are currently under high load. Please try again in a few seconds.' : 'Failed to analyze match result' 
       });
     }
   }

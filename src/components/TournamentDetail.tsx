@@ -3,7 +3,7 @@ import { collection, doc, onSnapshot, query, setDoc, serverTimestamp, updateDoc,
 import { ref, onValue } from 'firebase/database';
 import { db, rtdb, OperationType, handleFirestoreError } from '../lib/firebase';
 import { useFirebase } from '../contexts/FirebaseContext';
-import { Users, Plus, Trophy, Trash2, Edit3, X, Save, UserPlus, ChevronRight, LayoutGrid, GitMerge, ListOrdered, Tv, Shield, Zap, CheckCircle, Clock, FileText, ExternalLink, MessageSquare, Upload } from 'lucide-react';
+import { Users, Plus, Trophy, Trash2, Edit3, X, Save, UserPlus, ChevronRight, LayoutGrid, GitMerge, ListOrdered, Tv, Shield, Zap, CheckCircle, Clock, FileText, ExternalLink, MessageSquare, Upload, Facebook } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 
@@ -39,8 +39,8 @@ interface Match {
   id: string;
   homeParticipantId: string;
   awayParticipantId: string;
-  homeId?: string; // Legacy support for some components
-  awayId?: string; // Legacy support for some components
+  homeId?: string;
+  awayId?: string;
   homeScore?: number;
   awayScore?: number;
   status: 'scheduled' | 'reported' | 'completed';
@@ -49,6 +49,7 @@ interface Match {
   reportedBy?: string;
   screenshotUrl?: string;
   updatedAt?: any;
+  scheduledTime?: any; // New field for countdown
   stats?: any;
 }
 
@@ -134,6 +135,42 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const [scoreForm, setScoreForm] = useState({ home: 0, away: 0 });
 
+  const MatchCountdown = ({ deadline }: { deadline?: any }) => {
+    const [timeLeft, setTimeLeft] = useState<string>('00:00:00');
+
+    useEffect(() => {
+      if (!deadline) return;
+      
+      const interval = setInterval(() => {
+        const target = deadline.seconds ? deadline.seconds * 1000 : new Date(deadline).getTime();
+        const now = new Date().getTime();
+        const distance = target - now;
+
+        if (distance < 0) {
+          setTimeLeft('EXPIRED');
+          clearInterval(interval);
+          return;
+        }
+
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)).toString().padStart(2, '0');
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
+
+        setTimeLeft(`${hours}:${minutes}:${seconds}`);
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }, [deadline]);
+
+    if (!deadline) return null;
+
+    return (
+      <div className="bg-black/40 px-4 py-2 rounded-xl border border-white/5 shadow-inner">
+        <span className="text-[12px] font-mono font-black text-white tracking-[0.2em]">{timeLeft}</span>
+      </div>
+    );
+  };
+
   const MatchCard = ({ match, participants, onEdit, isAdmin, userParticipant, onChat, onReport, onApprove }: { 
     match: Match, 
     participants: Participant[], 
@@ -153,144 +190,182 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
     const isParticipant = isHome || isAway;
 
     return (
-      <div className="relative bg-white/5 rounded-[28px] p-6 transition-all shadow-xl border border-white/5 hover:border-white/10 group overflow-hidden rgb-border">
-        {/* Match Status Strip */}
-        <div className="flex items-center justify-between mb-6">
+      <div className="relative bg-[#0B1221] rounded-[32px] p-6 transition-all shadow-2xl border border-white/5 group overflow-hidden">
+        {/* Match Header Info */}
+        <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-2">
-            <span className={`w-1.5 h-1.5 rounded-full ${
+            <div className={`w-2 h-2 rounded-full ${
               match.status === 'completed' ? 'bg-green-500' : 
               match.status === 'reported' ? 'bg-amber-500 animate-pulse' : 
-              'bg-blue-500 animate-pulse'
-            }`}></span>
-            <span className="text-[8px] font-black uppercase tracking-[0.3em] text-zinc-500 italic">
-              {match.stage.replace('_', ' ')} · {match.group ? `Group ${match.group}` : 'Knockout'}
-              {match.status === 'reported' && ' · REPORTED'}
+              'bg-[#38bdf8] animate-pulse'
+            }`}></div>
+            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500 italic">
+              {match.stage.replace('_', ' ')} {match.group ? `· Group ${match.group}` : ''}
             </span>
           </div>
-          
-          <div className="flex items-center gap-2">
-            {(isParticipant || isAdmin || isOwner) && match.status !== 'completed' && (
-              <div className="flex items-center gap-1.5">
-                <button 
-                  onClick={() => {
-                    onChat(match.id, home?.displayName || 'TBD', away?.displayName || 'TBD');
-                    const chatPath = `chats/${tournamentId}/${match.id}`;
-                    updateLastSeen(chatPath);
-                  }}
-                  className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-amber-500 border border-white/5 relative"
-                  title="Team Chat"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  {hasUnread(`chats/${tournamentId}/${match.id}`) && (
-                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-black animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
-                  )}
-                </button>
-                {isParticipant && match.status === 'scheduled' && (
-                  <button 
-                    onClick={() => onReport(match.id, home?.displayName || 'TBD', away?.displayName || 'TBD')}
-                    className="p-2 bg-amber-500 text-black hover:bg-amber-400 rounded-xl transition-all border border-amber-400/20"
-                    title="Upload Result"
-                  >
-                    <Upload className="w-4 h-4" />
-                  </button>
+          {isAdmin && (
+            <button onClick={onEdit} className="p-2 hover:bg-white/5 rounded-xl transition-all text-zinc-500 hover:text-white">
+              <Edit3 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* The Duel Visualization */}
+        <div className="flex items-start justify-between gap-4 mb-8">
+          {/* Home Player */}
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-3 italic">Home</span>
+            <div className="relative group/avatar">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-[28px] bg-white/5 border-2 border-white/5 overflow-hidden shadow-lg transition-transform group-hover/avatar:scale-105">
+                {home?.photoURL ? (
+                  <img src={home.photoURL} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Users className="w-8 h-8 text-zinc-700" />
+                  </div>
                 )}
               </div>
-            )}
-            {isAdmin && (
-              <button onClick={onEdit} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-zinc-400">
-                <Edit3 className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Contenders Versus Layout */}
-        <div className="flex flex-col gap-3">
-          {/* Home */}
-          <div className={`flex items-center justify-between p-3 rounded-2xl relative ${match.status === 'completed' && match.homeScore! > match.awayScore! ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-black/20 border border-white/5'}`}>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-black/20 flex items-center justify-center font-black text-amber-500 text-[8px] italic border border-white/5">
-                HOME
-              </div>
-              <div className="flex flex-col min-w-0 flex-1">
-                <span className={`text-sm font-black italic truncate ${match.status === 'completed' && match.homeScore! > match.awayScore! ? 'text-amber-500' : 'text-white'}`}>{home?.displayName || 'TBD'}</span>
-                <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest truncate">{home?.ovr || '--'} OVR</span>
-              </div>
-            </div>
-            <span className={`text-2xl font-black italic ${(match.status === 'completed' || match.status === 'reported') ? (match.homeScore! > match.awayScore! ? 'text-amber-500' : 'text-zinc-500') : 'text-zinc-800'}`}>
-              {(match.status === 'completed' || match.status === 'reported') ? match.homeScore : '-'}
-            </span>
-          </div>
-
-          {/* Away */}
-          <div className={`flex items-center justify-between p-3 rounded-2xl relative ${match.status === 'completed' && match.awayScore! > match.homeScore! ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-black/20 border border-white/5'}`}>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-black/20 flex items-center justify-center font-black text-blue-500 text-[8px] italic border border-white/5">
-                AWAY
-              </div>
-              <div className="flex flex-col min-w-0 flex-1">
-                <span className={`text-sm font-black italic truncate ${match.status === 'completed' && match.awayScore! > match.homeScore! ? 'text-amber-500' : 'text-white'}`}>{away?.displayName || 'TBD'}</span>
-                <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest truncate">{away?.ovr || '--'} OVR</span>
-              </div>
-            </div>
-            <span className={`text-2xl font-black italic ${(match.status === 'completed' || match.status === 'reported') ? (match.awayScore! > match.homeScore! ? 'text-amber-500' : 'text-zinc-500') : 'text-zinc-800'}`}>
-              {(match.status === 'completed' || match.status === 'reported') ? match.awayScore : '-'}
-            </span>
-          </div>
-        </div>
-
-        {/* Action Buttons for Players */}
-        {match.status === 'scheduled' && isHome && (
-          <button 
-            onClick={() => onReport(match.id, home?.displayName || 'TBD', away?.displayName || 'TBD')}
-            className="w-full mt-4 py-4 bg-amber-500 text-black rounded-2xl font-black uppercase tracking-[0.15em] text-[10px] italic hover:bg-amber-400 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
-          >
-            <Upload className="w-4 h-4" />
-            Upload Match Result
-          </button>
-        )}
-
-        {match.status === 'scheduled' && isAway && (
-          <div className="mt-4 p-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
-            <span className="text-[9px] font-black text-blue-500/80 uppercase tracking-widest italic leading-tight">
-              You are AWAY. Waiting for HOME player to report result.
-            </span>
-          </div>
-        )}
-
-        {match.status === 'reported' && isAway && (
-          <div className="mt-4 space-y-3">
-            <div className="p-3 bg-white/5 border border-white/5 rounded-xl flex flex-col items-center gap-2">
-              <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest italic text-center">Home player reported result. Verify and approve.</span>
-              {match.screenshotUrl && (
-                <button 
-                  onClick={() => setViewingScreenshot(match.screenshotUrl!)}
-                  className="px-4 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-amber-500 hover:text-black transition-all"
-                >
-                  View Screenshot Proof
-                </button>
+              {match.status === 'completed' && match.homeScore! > match.awayScore! && (
+                <div className="absolute -top-2 -right-2 w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center shadow-lg border-2 border-[#0B1221]">
+                  <Trophy className="w-4 h-4 text-black" />
+                </div>
               )}
             </div>
-            <button 
-              onClick={() => onApprove(match)}
-              className="w-full py-3 bg-green-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest italic hover:bg-green-400 transition-all flex items-center justify-center gap-2"
-            >
-              <CheckCircle className="w-3.5 h-3.5" />
-              Approve & Finalize
-            </button>
+            <span className="text-sm font-black text-white mt-4 italic truncate w-full text-center">{home?.displayName || 'TBD'}</span>
+            <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mt-1">{home?.ovr || '--'} OVR</span>
+            
+            {/* Social Links for Players */}
+            {isParticipant && home?.fbLink && (
+              <div className="flex gap-2 mt-3">
+                <a href={home.fbLink} target="_blank" rel="noreferrer" className="p-1.5 bg-[#1877F2]/10 rounded-lg hover:bg-[#1877F2]/20 text-[#1877F2] transition-all" title="Facebook Profile">
+                  <Facebook className="w-3.5 h-3.5" />
+                </a>
+                <a href={`https://m.me/${home.fbLink.replace(/\/$/, '').split('/').pop()}`} target="_blank" rel="noreferrer" className="p-1.5 bg-[#00B2FF]/10 rounded-lg hover:bg-[#00B2FF]/20 text-[#00B2FF] transition-all" title="Messenger">
+                  <MessageSquare className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            )}
+          </div>
+
+          {/* Center VS & Score/Timer */}
+          <div className="flex flex-col items-center justify-center pt-8">
+            {match.status === 'completed' || match.status === 'reported' ? (
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-3xl sm:text-4xl font-black text-white italic">{match.homeScore}</span>
+                <span className="text-sm font-black text-zinc-700 italic">VS</span>
+                <span className="text-3xl sm:text-4xl font-black text-white italic">{match.awayScore}</span>
+              </div>
+            ) : (
+              <span className="text-4xl sm:text-5xl font-black text-white/10 italic mb-2 tracking-tighter">VS</span>
+            )}
+
+            {match.status === 'scheduled' && (
+              <MatchCountdown deadline={match.scheduledTime} />
+            )}
+
+            {match.status === 'completed' && (
+              <div className="px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full">
+                <span className="text-[8px] font-black text-green-500 uppercase tracking-widest italic">Completed</span>
+              </div>
+            )}
+          </div>
+
+          {/* Away Player */}
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className="text-[10px] font-black text-[#38bdf8] uppercase tracking-widest mb-3 italic">Away</span>
+            <div className="relative group/avatar">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-[28px] bg-white/5 border-2 border-white/5 overflow-hidden shadow-lg transition-transform group-hover/avatar:scale-105">
+                {away?.photoURL ? (
+                  <img src={away.photoURL} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Users className="w-8 h-8 text-zinc-700" />
+                  </div>
+                )}
+              </div>
+              {match.status === 'completed' && match.awayScore! > match.homeScore! && (
+                <div className="absolute -top-2 -right-2 w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center shadow-lg border-2 border-[#0B1221]">
+                  <Trophy className="w-4 h-4 text-black" />
+                </div>
+              )}
+            </div>
+            <span className="text-sm font-black text-white mt-4 italic truncate w-full text-center">{away?.displayName || 'TBD'}</span>
+            <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mt-1">{away?.ovr || '--'} OVR</span>
+            
+            {/* Social Links for Players */}
+            {isParticipant && away?.fbLink && (
+              <div className="flex gap-2 mt-3">
+                <a href={away.fbLink} target="_blank" rel="noreferrer" className="p-1.5 bg-[#1877F2]/10 rounded-lg hover:bg-[#1877F2]/20 text-[#1877F2] transition-all" title="Facebook Profile">
+                  <Facebook className="w-3.5 h-3.5" />
+                </a>
+                <a href={`https://m.me/${away.fbLink.replace(/\/$/, '').split('/').pop()}`} target="_blank" rel="noreferrer" className="p-1.5 bg-[#00B2FF]/10 rounded-lg hover:bg-[#00B2FF]/20 text-[#00B2FF] transition-all" title="Messenger">
+                  <MessageSquare className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Player Action Controls (Image 2 style) */}
+        {isParticipant && match.status !== 'completed' && (
+          <div className="space-y-4 pt-2 border-t border-white/5">
+            <div className="grid grid-cols-2 gap-3">
+              {match.status === 'scheduled' && isHome && (
+                <button 
+                  onClick={() => onReport(match.id, home?.displayName || 'TBD', away?.displayName || 'TBD')}
+                  className="py-4 bg-amber-500 text-black rounded-2xl font-black uppercase tracking-widest text-[10px] italic hover:bg-amber-400 transition-all shadow-xl shadow-amber-500/10 flex items-center justify-center gap-2"
+                >
+                  <Upload className="w-4 h-4" />
+                  Upload Result
+                </button>
+              )}
+              {match.status === 'reported' && isAway && (
+                <button 
+                  onClick={() => onApprove(match)}
+                  className="py-4 bg-green-500 text-black rounded-2xl font-black uppercase tracking-widest text-[10px] italic hover:bg-green-400 transition-all shadow-xl shadow-green-500/10 flex items-center justify-center gap-2"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Confirm Result
+                </button>
+              )}
+              <button 
+                onClick={() => {
+                  onChat(match.id, home?.displayName || 'TBD', away?.displayName || 'TBD');
+                  updateLastSeen(`chats/${tournamentId}/${match.id}`);
+                }}
+                className={`py-4 bg-white/5 hover:bg-white/10 rounded-2xl transition-all text-amber-500 border border-white/5 flex items-center justify-center gap-2 relative ${(!isHome && match.status === 'scheduled') || (!isAway && match.status === 'reported') ? 'col-span-2' : ''}`}
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest italic">Match Chat</span>
+                {hasUnread(`chats/${tournamentId}/${match.id}`) && (
+                  <span className="absolute top-3 right-3 w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-lg" />
+                )}
+              </button>
+            </div>
           </div>
         )}
 
-        {match.status === 'reported' && isHome && (
-          <div className="mt-4 p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl flex items-center gap-3">
-            <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
-            <span className="text-[9px] font-black text-amber-500/80 uppercase tracking-widest italic leading-tight">Result submitted. Waiting for opponent's verification.</span>
+        {/* Screenshots/Status for others */}
+        {match.status === 'reported' && (isHome || isAdmin) && (
+          <div className="mt-4 p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
+              <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest italic">Awaiting Verification</span>
+            </div>
+            {match.screenshotUrl && (
+              <button 
+                onClick={() => setViewingScreenshot(match.screenshotUrl!)}
+                className="text-[9px] font-black text-amber-500 uppercase tracking-widest hover:underline"
+              >
+                View Proof
+              </button>
+            )}
           </div>
         )}
       </div>
     );
   };
+
 
   const userParticipant = participants.find(p => p.userId === user?.uid);
   const isUserRegistered = !!userParticipant;
@@ -383,11 +458,31 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
         status: 'scheduled',
         stage: matchForm.stage,
         group: matchForm.stage === 'group' ? matchForm.group : null,
+        scheduledTime: (matchForm as any).scheduledTime ? new Date((matchForm as any).scheduledTime) : serverTimestamp(),
         updatedAt: serverTimestamp()
       });
       setIsMatchModalOpen(false);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, `tournaments/${tournamentId}/matches`);
+    }
+  };
+
+  const handleUpdateMatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isAdmin && !isOwner || !editingMatchId) return;
+    try {
+      await updateDoc(doc(db, 'tournaments', tournamentId, 'matches', editingMatchId), {
+        homeParticipantId: matchForm.homeId,
+        awayParticipantId: matchForm.awayId,
+        stage: matchForm.stage,
+        group: matchForm.stage === 'group' ? matchForm.group : null,
+        scheduledTime: (matchForm as any).scheduledTime ? new Date((matchForm as any).scheduledTime) : serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      setEditingMatchId(null);
+      setIsMatchModalOpen(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `tournaments/${tournamentId}/matches/${editingMatchId}`);
     }
   };
 
@@ -574,7 +669,7 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
                 </div>
                 <div className="divide-y divide-white/5">
                   {getGroupParticipants(activeGroup).map((p, i) => (
-                    <div key={p.id} className="grid grid-cols-12 px-6 py-5 items-center hover:bg-white/5 transition-all group">
+                    <div key={`group-p-${p.id}`} className="grid grid-cols-12 px-6 py-5 items-center hover:bg-white/5 transition-all group">
                       <div className="col-span-1 flex items-center justify-center">
                         <span className={`text-[16px] font-black italic ${i < 2 ? 'text-amber-500' : 'text-zinc-600'}`}>{i + 1}</span>
                       </div>
@@ -608,10 +703,20 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {matches.filter(m => m.stage === 'group' && m.group === activeGroup).map(m => (
                   <MatchCard 
-                    key={m.id} 
+                    key={`group-${m.id}`} 
                     match={m} 
                     participants={participants} 
-                    onEdit={() => { setEditingMatchId(m.id); setScoreForm({ home: m.homeScore || 0, away: m.awayScore || 0 }); }} 
+                    onEdit={() => { 
+                      setEditingMatchId(m.id); 
+                      setMatchForm({ 
+                        homeId: m.homeParticipantId, 
+                        awayId: m.awayParticipantId, 
+                        stage: m.stage, 
+                        group: m.group || 'A',
+                        scheduledTime: m.scheduledTime ? (m.scheduledTime.seconds ? new Date(m.scheduledTime.seconds * 1000).toISOString().slice(0, 16) : new Date(m.scheduledTime).toISOString().slice(0, 16)) : ''
+                      } as any);
+                      setIsMatchModalOpen(true);
+                    }} 
                     isAdmin={isAdmin || isOwner} 
                     userParticipant={userParticipant}
                     onChat={(matchId, homeName, awayName) => setActiveMatchChat({ matchId, homeName, awayName })}
@@ -642,10 +747,20 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
                   <div className="space-y-4 px-1">
                     {matches.filter(m => m.stage === stage).map(m => (
                       <MatchCard 
-                        key={m.id} 
+                        key={`knockout-${m.id}`} 
                         match={m} 
                         participants={participants} 
-                        onEdit={() => { setEditingMatchId(m.id); setScoreForm({ home: m.homeScore || 0, away: m.awayScore || 0 }); }} 
+                        onEdit={() => { 
+                          setEditingMatchId(m.id); 
+                          setMatchForm({ 
+                            homeId: m.homeParticipantId, 
+                            awayId: m.awayParticipantId, 
+                            stage: m.stage, 
+                            group: m.group || 'A',
+                            scheduledTime: m.scheduledTime ? (m.scheduledTime.seconds ? new Date(m.scheduledTime.seconds * 1000).toISOString().slice(0, 16) : new Date(m.scheduledTime).toISOString().slice(0, 16)) : ''
+                          } as any);
+                          setIsMatchModalOpen(true);
+                        }} 
                         isAdmin={isAdmin || isOwner} 
                         userParticipant={userParticipant}
                         onChat={(matchId, homeName, awayName) => setActiveMatchChat({ matchId, homeName, awayName })}
@@ -728,7 +843,7 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
                           initial={{ x: -20, opacity: 0 }}
                           animate={{ x: 0, opacity: 1 }}
                           transition={{ delay: i * 0.05 }}
-                          key={p.id} 
+                          key={`ranking-${p.id}`} 
                           className={`grid grid-cols-12 px-6 py-6 items-center hover:bg-white/5 transition-all group relative ${i === 0 ? 'bg-amber-500/5' : ''}`}
                         >
                           <div className="col-span-1 flex items-center justify-center relative">
@@ -819,7 +934,7 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
         {activeTab === 'players' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {approvedParticipants.map(p => (
-              <div key={p.id} className="bg-white/5 border border-white/5 rounded-[28px] p-6 flex items-center justify-between group hover:border-amber-500/30 transition-all shadow-xl rgb-border">
+              <div key={`players-${p.id}`} className="bg-white/5 border border-white/5 rounded-[28px] p-6 flex items-center justify-between group hover:border-amber-500/30 transition-all shadow-xl rgb-border">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center font-black text-black italic text-lg shadow-lg shadow-amber-500/10">
                     {p.displayName.substring(0, 1)}
@@ -845,7 +960,7 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {pendingRequests.map(p => (
-                  <div key={p.id} className="bg-white/5 border border-white/5 rounded-[32px] p-8 shadow-2xl space-y-6 rgb-border">
+                  <div key={`req-${p.id}`} className="bg-white/5 border border-white/5 rounded-[32px] p-8 shadow-2xl space-y-6 rgb-border">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="w-14 h-14 rounded-2xl bg-amber-500 flex items-center justify-center font-black text-black italic text-2xl">
@@ -928,7 +1043,7 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
                 <h3 className="text-2xl font-display font-black text-white uppercase italic italic tracking-tight mb-8">Arena Logistics</h3>
                 <div className="space-y-3 max-h-[400px] overflow-y-auto no-scrollbar pr-2">
                   {approvedParticipants.map(p => (
-                    <div key={p.id} className="flex items-center justify-between p-4 bg-black/20 rounded-2xl border border-white/5 group">
+                    <div key={`admin-${p.id}`} className="flex items-center justify-between p-4 bg-black/20 rounded-2xl border border-white/5 group">
                       <div className="flex flex-col">
                         <span className="text-sm font-black text-white italic">{p.displayName}</span>
                         <div className="flex items-center gap-2">
@@ -1034,10 +1149,10 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
 
         {isMatchModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsMatchModalOpen(false)} className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setIsMatchModalOpen(false); setEditingMatchId(null); }} className="absolute inset-0 bg-black/80 backdrop-blur-md" />
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="relative bg-[#1A2233] border border-white/10 rounded-[40px] w-full max-w-lg p-10 shadow-2xl">
-               <h2 className="text-2xl font-black text-white mb-8 uppercase italic italic tracking-tight">Deploy New Match</h2>
-               <form onSubmit={handleCreateMatch} className="space-y-6">
+               <h2 className="text-2xl font-black text-white mb-8 uppercase italic italic tracking-tight">{editingMatchId ? 'Update Match Logistics' : 'Deploy New Match'}</h2>
+               <form onSubmit={editingMatchId ? handleUpdateMatch : handleCreateMatch} className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-amber-500 uppercase tracking-widest px-2 italic">Stage</label>
@@ -1073,9 +1188,21 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
                       {participants.map(p => <option key={p.id} value={p.id}>{p.displayName} {p.group ? `(GP ${p.group})` : ''}</option>)}
                     </select>
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-amber-500 uppercase tracking-widest px-2 italic">Match Deadline (Timer Target)</label>
+                    <input 
+                      required
+                      type="datetime-local" 
+                      value={(matchForm as any).scheduledTime || ''} 
+                      onChange={e => setMatchForm({...matchForm, scheduledTime: e.target.value} as any)} 
+                      className="w-full h-14 px-5 bg-black/20 border border-white/5 rounded-2xl font-black text-white italic outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                  </div>
                   <div className="flex gap-4 pt-4">
-                    <button type="button" onClick={() => setIsMatchModalOpen(false)} className="flex-1 py-4 text-zinc-500 font-black uppercase tracking-widest text-[10px] italic">Cancel</button>
-                    <button className="flex-1 py-4 bg-amber-500 text-black rounded-2xl font-black uppercase tracking-widest text-[10px] italic shadow-xl shadow-amber-500/10">Deploy</button>
+                    <button type="button" onClick={() => { setIsMatchModalOpen(false); setEditingMatchId(null); }} className="flex-1 py-4 text-zinc-500 font-black uppercase tracking-widest text-[10px] italic">Cancel</button>
+                    <button className="flex-1 py-4 bg-amber-500 text-black rounded-2xl font-black uppercase tracking-widest text-[10px] italic shadow-xl shadow-amber-500/10">
+                      {editingMatchId ? 'Update' : 'Deploy'}
+                    </button>
                   </div>
                </form>
             </motion.div>

@@ -39,11 +39,18 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
 
       if (user) {
         // 1. User Profile Listener
-        userUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (doc) => {
-          if (doc.exists()) {
-            setUserData(doc.data());
+        userUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+          if (snap.exists()) {
+            setUserData(snap.data());
+            setLoading(false);
+          } else {
+            // For new users or if profile creation is in progress
+            // Don't keep loading forever if we are in the process of creating it
+            setUserData(null);
+            // If it's not a new user from popup flow but data is missing, we might want to stay loading or show profile setup
+            // However, to fix "stuck login", we set loading false if we know the user is authenticated
+            setLoading(false);
           }
-          setLoading(false);
         }, (err) => {
           console.error('User data listener error:', err);
           setLoading(false);

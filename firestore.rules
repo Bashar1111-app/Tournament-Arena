@@ -43,7 +43,7 @@ service cloud.firestore {
 
     function isValidMatch(data) {
       return data.keys().hasAll(['homeParticipantId', 'awayParticipantId', 'status', 'stage']) &&
-             data.keys().hasOnly(['homeParticipantId', 'awayParticipantId', 'homeScore', 'awayScore', 'status', 'stage', 'group', 'events', 'playedAt', 'updatedAt', 'reportedBy', 'screenshotUrl']) &&
+             data.keys().hasOnly(['homeParticipantId', 'awayParticipantId', 'homeScore', 'awayScore', 'status', 'stage', 'group', 'events', 'playedAt', 'updatedAt', 'reportedBy', 'screenshotUrl', 'scheduledTime']) &&
              data.status in ['scheduled', 'reported', 'completed'] &&
              data.stage in ['group', 'round_of_32', 'round_of_16', 'quarter_final', 'semi_final', 'final'] &&
              (data.get('group', null) == null || (data.group is string && data.group.size() <= 1)) &&
@@ -76,7 +76,7 @@ service cloud.firestore {
     match /tournaments/{tournamentId} {
       allow read: if true;
       allow create: if isSignedIn() && (isAdmin() || isPublisher()) && isValidTournament(incoming());
-      allow update: if isSignedIn();
+      allow update: if isSignedIn() && (isAdmin() || request.auth.uid == existing().createdBy);
       allow delete: if isAdmin();
 
       match /participants/{participantId} {
