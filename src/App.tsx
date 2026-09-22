@@ -4,11 +4,12 @@ import { TournamentList } from './components/TournamentList';
 import { TournamentDetail } from './components/TournamentDetail';
 import { Layout } from './components/Layout';
 import { Profile } from './components/Profile';
+import { Dashboard } from './components/Dashboard';
 
 function AppContent() {
   const { user, loading } = useFirebase();
   const [selectedTournamentId, setSelectedTournamentId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'arena' | 'standings' | 'bracket' | 'profile'>('arena');
+  const [activeTab, setActiveTab] = useState<'arena' | 'dashboard' | 'standings' | 'bracket' | 'profile'>('arena');
 
   if (loading) {
     return (
@@ -24,6 +25,13 @@ function AppContent() {
   const renderContent = () => {
     if (activeTab === 'profile') {
       return <Profile onSelectTournament={(id) => {
+        setSelectedTournamentId(id);
+        setActiveTab('arena');
+      }} />;
+    }
+
+    if (activeTab === 'dashboard') {
+      return <Dashboard onSelectTournament={(id) => {
         setSelectedTournamentId(id);
         setActiveTab('arena');
       }} />;

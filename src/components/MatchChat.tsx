@@ -36,6 +36,14 @@ export const MatchChat: React.FC<MatchChatProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
+
+  useEffect(() => {
     const chatRef = ref(rtdb, `chats/${tournamentId}/${matchId}`);
     
     const listener = onValue(chatRef, (snapshot) => {
@@ -67,7 +75,7 @@ export const MatchChat: React.FC<MatchChatProps> = ({
     if (!newMessage.trim() || !auth.currentUser) return;
 
     try {
-      const userParticipant = participants.find(p => p.userId === auth.currentUser?.uid);
+      const userParticipant = participants?.find(p => p.userId === auth.currentUser?.uid);
       const senderName = userParticipant?.displayName || auth.currentUser.displayName || 'Player';
       const senderPhoto = userParticipant?.photoURL || auth.currentUser.photoURL || '';
 
@@ -87,7 +95,7 @@ export const MatchChat: React.FC<MatchChatProps> = ({
   };
 
   const getPlayerName = (uid: string) => {
-    const p = participants.find(p => p.userId === uid);
+    const p = participants?.find(p => p.userId === uid);
     return p?.displayName || 'Unknown Player';
   };
 
@@ -102,8 +110,12 @@ export const MatchChat: React.FC<MatchChatProps> = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
       className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+      onClick={onClose}
     >
-      <div className="w-full max-w-lg bg-[#111827] rounded-[40px] border border-white/10 shadow-2xl overflow-hidden flex flex-col h-[80vh] rgb-border">
+      <div 
+        className="w-full max-w-lg bg-[#111827] rounded-[40px] border border-white/10 shadow-2xl overflow-hidden flex flex-col h-[80vh] rgb-border"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Chat Header */}
         <div className="p-6 border-b border-white/5 bg-white/5 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -118,8 +130,11 @@ export const MatchChat: React.FC<MatchChatProps> = ({
             </div>
           </div>
           <button 
-            onClick={onClose}
-            className="p-2 hover:bg-white/5 rounded-full text-zinc-400 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+            className="p-2 hover:bg-white/5 rounded-full text-zinc-400 transition-colors cursor-pointer pointer-events-auto"
           >
             <X className="w-5 h-5" />
           </button>
@@ -142,8 +157,8 @@ export const MatchChat: React.FC<MatchChatProps> = ({
           ) : (
             messages.map((msg) => {
               const isMe = msg.senderId === auth.currentUser?.uid;
-              const senderPhoto = msg.senderPhoto || participants.find(p => p.userId === msg.senderId)?.photoURL;
-              const senderName = msg.senderName || participants.find(p => p.userId === msg.senderId)?.displayName || 'Player';
+              const senderPhoto = msg.senderPhoto || participants?.find(p => p.userId === msg.senderId)?.photoURL;
+              const senderName = msg.senderName || participants?.find(p => p.userId === msg.senderId)?.displayName || 'Player';
               
               return (
                 <div 

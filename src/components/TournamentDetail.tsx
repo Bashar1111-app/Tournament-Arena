@@ -105,6 +105,17 @@ export function TournamentDetail({ tournamentId, onBack, initialTab }: Tournamen
     return () => unsubscribers.forEach(unsub => unsub());
   }, [tournamentId, matches]);
 
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setActiveMatchChat(null);
+        setReportingMatch(null);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
+
   const updateLastSeen = (chatPath: string) => {
     const now = Date.now();
     const updated = { ...lastSeenMessages, [chatPath]: now };

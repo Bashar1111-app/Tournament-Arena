@@ -23,7 +23,7 @@ const ai = new GoogleGenAI({
 
 // API Route to analyze screenshot with basic retry logic
 app.post('/api/analyze-result', async (req, res) => {
-  const maxRetries = 4; // Increased to 4 retries
+  const maxRetries = 5; // Increased back to 5 for high demand scenarios
   let attempt = 0;
 
   const performAnalysis = async () => {
@@ -32,47 +32,83 @@ app.post('/api/analyze-result', async (req, res) => {
       throw new Error('Image data is required');
     }
 
-    // Use gemini-3.8-flash as the primary high-performance model
+    // Use gemini-3.8-flash for the latest high-performance cloud processing
     const modelName = "gemini-3.8-flash";
     
-    console.log(`Analyzing match result with model: ${modelName} (Attempt ${attempt + 1})`);
+    console.log(`Analyzing match result via Cloud Interactions with: ${modelName} (Attempt ${attempt + 1})`);
 
-    const prompt = `You are the Elite Arena Referee AI for FC Mobile. Analyze this match result screenshot.
-    Extract details for players: "${homePlayerName}" (Home) and "${awayPlayerName}" (Away).
+    const prompt = `Match Referee AI: High-speed extraction for FC Mobile.
+    Inputs: Home Player: "${homePlayerName}", Away Player: "${awayPlayerName}".
     
-    Return JSON: 
+    Instructions:
+    1. Identify Home/Away players from the image names.
+    2. Extract scores and match statistics.
+    3. Return ONLY the JSON object. Do not include any other text.
+    
+    Required JSON Structure:
     {
-      "isResultScreenshot": boolean, 
-      "homeScore": number, 
-      "awayScore": number, 
-      "homeNameFound": string, 
-      "awayNameFound": string, 
-      "isNameMatch": boolean, 
-      "confidence": number,
+      "isResultScreenshot": boolean,
+      "homeScore": number,
+      "awayScore": number,
+      "homeNameFound": string,
+      "awayNameFound": string,
+      "isNameMatch": boolean,
       "stats": {
         "home": { "shots": string, "possession": number, "passAccuracy": number, "fouls": number, "offsides": number },
         "away": { "shots": string, "possession": number, "passAccuracy": number, "fouls": number, "offsides": number }
       }
     }`;
 
-    const imagePart = {
-      inlineData: {
-        mimeType: "image/jpeg",
-        data: imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64,
-      },
-    };
-
-    const response = await ai.models.generateContent({
+    const interaction = await ai.interactions.create({
       model: modelName,
-      contents: { parts: [imagePart, { text: prompt }] },
-      config: {
-        responseMimeType: "application/json",
+      input: [
+        {
+          type: "image",
+          mime_type: "image/jpeg",
+          data: imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64,
+        },
+        {
+          type: "text",
+          text: prompt
+        }
+      ],
+      generation_config: {
         temperature: 0.1
       }
     });
 
-    if (!response.text) throw new Error('Empty AI response');
-    return JSON.parse(response.text.trim());
+    let fullOutput = "";
+    for (const step of interaction.steps) {
+      if (step.type === 'model_output') {
+        const textContent = step.content?.find(c => c.type === 'text');
+        if (textContent && textContent.text) {
+          fullOutput += textContent.text;
+        }
+      }
+    }
+
+    if (!fullOutput) throw new Error('Empty AI response from Interactions API');
+    
+    // Safe JSON extraction to handle potential markdown or extra text
+    let parsedData = null;
+    const jsonMatch = fullOutput.match(/```json\s*([\s\S]*?)\s*```/) || fullOutput.match(/([\{\[][\s\S]*[\}\]])/);
+    
+    if (jsonMatch) {
+      try {
+        parsedData = JSON.parse(jsonMatch[1]);
+      } catch (e) {
+        console.error("Partial JSON parse error:", e);
+        throw new Error('AI returned invalid JSON format');
+      }
+    } else {
+      try {
+        parsedData = JSON.parse(fullOutput.trim());
+      } catch (e) {
+        throw new Error('Could not extract JSON from AI response');
+      }
+    }
+
+    return parsedData;
   };
 
   while (attempt <= maxRetries) {

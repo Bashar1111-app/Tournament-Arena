@@ -38,10 +38,10 @@ export const ResultReportModal: React.FC<ResultReportModalProps> = ({
     setNameMatchInfo(null);
     setPerformanceStats(null);
     try {
-      // Compress image before analysis - Increased quality for AI accuracy
+      // Compress image before analysis - Balanced for 100KB target
       const options = {
-        maxSizeMB: 0.8, // Increased to 800KB for better text clarity
-        maxWidthOrHeight: 1920, // Full HD resolution
+        maxSizeMB: 0.1, // Target 100KB
+        maxWidthOrHeight: 1280, // High enough for OCR but reduces data size
         useWebWorker: true
       };
       
@@ -126,8 +126,8 @@ export const ResultReportModal: React.FC<ResultReportModalProps> = ({
 
     try {
       const options = {
-        maxSizeMB: 0.5, // Increased to 500KB for visible quality
-        maxWidthOrHeight: 1920,
+        maxSizeMB: 0.1, // Target 100KB
+        maxWidthOrHeight: 1280,
         useWebWorker: true,
       };
       

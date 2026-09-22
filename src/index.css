@@ -5,6 +5,11 @@
   --font-display: "Space Grotesk", sans-serif;
 }
 
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
 @layer base {
   body {
     @apply bg-[#0B1221] text-white font-sans antialiased selection:bg-amber-500/30;

@@ -116,7 +116,10 @@ service cloud.firestore {
 
     // --- Collection Group Access ---
     match /{path=**}/participants/{participantId} {
-      allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow read, list: if isSignedIn();
+    }
+    match /{path=**}/matches/{matchId} {
+      allow read, list: if isSignedIn();
     }
   }
 }

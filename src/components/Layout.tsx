@@ -11,8 +11,8 @@ interface LayoutProps {
   children: React.ReactNode;
   onBack?: () => void;
   isDetail?: boolean;
-  activeTab: 'arena' | 'standings' | 'bracket' | 'profile';
-  setActiveTab: (tab: 'arena' | 'standings' | 'bracket' | 'profile') => void;
+  activeTab: 'arena' | 'dashboard' | 'standings' | 'bracket' | 'profile';
+  setActiveTab: (tab: 'arena' | 'dashboard' | 'standings' | 'bracket' | 'profile') => void;
   onSelectTournament?: (id: string) => void;
 }
 
@@ -61,6 +61,11 @@ export function Layout({ children, onBack, isDetail, activeTab, setActiveTab, on
 
   const navItems = [
     { id: 'arena', label: 'Arena', icon: LayoutGrid },
+    { 
+      id: 'dashboard', 
+      label: userData?.role === 'publisher' ? 'Tourneys' : 'Matches', 
+      icon: userData?.role === 'publisher' ? Zap : Gamepad2 
+    },
     { id: 'standings', label: 'Standings', icon: Award },
     { id: 'bracket', label: 'Bracket', icon: Activity },
     { id: 'profile', label: 'Profile', icon: UserCircle },

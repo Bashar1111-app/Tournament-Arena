@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useFirebase } from '../contexts/FirebaseContext';
-import { UserCircle, Trophy, Target, Shield, Clock, LogOut, Facebook, Phone, Mail, Fingerprint, Save, Edit3, Lock, Bell, Star, Zap, Camera, Loader2, Gamepad2 } from 'lucide-react';
+import { UserCircle, Trophy, Target, Shield, Clock, LogOut, Facebook, Phone, Mail, Fingerprint, Save, Edit3, Lock, Bell, Star, Zap, Camera, Loader2, Gamepad2, Send, Copy, CheckCircle2, UserCog, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { doc, setDoc, addDoc, collection, serverTimestamp, updateDoc, query, where, collectionGroup, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -12,6 +12,7 @@ interface UserProfileData {
   gameUid: string;
   facebookLink: string;
   phone: string;
+  messengerLink?: string;
   gamePassword?: string;
   photoURL?: string;
 }
@@ -91,6 +92,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
     gameUid: '',
     facebookLink: '',
     phone: '',
+    messengerLink: '',
     gamePassword: '',
     photoURL: ''
   });
@@ -99,6 +101,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
   const [publishedCount, setPublishedCount] = useState(0);
   const [myTournaments, setMyTournaments] = useState<any[]>([]);
   const [joinedTournaments, setJoinedTournaments] = useState<any[]>([]);
+  const [matchStats, setMatchStats] = useState({ played: 0, won: 0 });
 
   useEffect(() => {
     if (!user) return;
@@ -114,10 +117,11 @@ export function Profile({ onSelectTournament }: ProfileProps) {
       setLoading(false);
     });
 
-    // 2. Publisher/Participant Stats & Tournaments Sync
+    // 2. Stats & Tournaments Sync
     let tournamentsUnsubscribe: (() => void) | null = null;
     let joinedUnsubscribe: (() => void) | null = null;
     let joinedDetailsUnsubscribe: (() => void) | null = null;
+    let matchesUnsubscribe: (() => void) | null = null;
 
     if (userData?.role === 'publisher') {
       const q = query(collection(db, 'tournaments'), where('createdBy', '==', user.uid));
@@ -129,7 +133,43 @@ export function Profile({ onSelectTournament }: ProfileProps) {
 
     const joinedQ = query(collectionGroup(db, 'participants'), where('userId', '==', user.uid));
     joinedUnsubscribe = onSnapshot(joinedQ, (joinedSnapshot) => {
-      const tournamentIds = Array.from(new Set(joinedSnapshot.docs.map(doc => doc.ref.parent.parent?.id).filter(id => !!id)));
+      const participantDocs = joinedSnapshot.docs;
+      const tournamentIds = Array.from(new Set(participantDocs.map(doc => doc.ref.parent.parent?.id).filter(id => !!id)));
+      const myParticipantIds = participantDocs.map(doc => doc.id);
+      
+      // Calculate Match Stats across joined tournaments
+      if (myParticipantIds.length > 0 && tournamentIds.length > 0) {
+        // We listen to matches for each tournament the user is in
+        const unsubscribers: (() => void)[] = [];
+        const tournamentMatches: Record<string, any[]> = {};
+
+        tournamentIds.forEach(tId => {
+          const q = query(collection(db, 'tournaments', tId, 'matches'), where('status', '==', 'completed'));
+          const unsub = onSnapshot(q, (snapshot) => {
+            tournamentMatches[tId] = snapshot.docs.map(doc => doc.data());
+            
+            // Re-calculate stats whenever any tournament matches update
+            let played = 0;
+            let won = 0;
+            Object.values(tournamentMatches).flat().forEach(data => {
+              const isParticipant = 
+                (data.homeParticipantId && myParticipantIds.includes(data.homeParticipantId)) || 
+                (data.awayParticipantId && myParticipantIds.includes(data.awayParticipantId));
+              
+              if (isParticipant) {
+                played++;
+                if ((data.winners || []).some((wId: string) => myParticipantIds.includes(wId))) {
+                  won++;
+                }
+              }
+            });
+            setMatchStats({ played, won });
+          }, (err) => console.warn(`Match stats listener error for ${tId}:`, err));
+          unsubscribers.push(unsub);
+        });
+        
+        matchesUnsubscribe = () => unsubscribers.forEach(unsub => unsub());
+      }
       
       // Unsubscribe from previous details listener if any
       if (joinedDetailsUnsubscribe) joinedDetailsUnsubscribe();
@@ -149,6 +189,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
       if (tournamentsUnsubscribe) tournamentsUnsubscribe();
       if (joinedUnsubscribe) joinedUnsubscribe();
       if (joinedDetailsUnsubscribe) joinedDetailsUnsubscribe();
+      if (matchesUnsubscribe) matchesUnsubscribe();
     };
   }, [user, userData]);
 
@@ -209,208 +250,201 @@ export function Profile({ onSelectTournament }: ProfileProps) {
     </div>
   );
 
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    alert(`${label} copied to clipboard!`);
+  };
+
   return (
     <motion.div 
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="space-y-8 pb-20"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="max-w-md mx-auto space-y-12 pb-20 pt-24"
     >
-      {/* Ultra-Modern Hero Profile Section */}
-      <div className="relative overflow-hidden rounded-[40px] sm:rounded-[56px] bg-gradient-to-br from-[#0B1221] via-[#111827] to-[#0B1221] border border-white/10 p-6 sm:p-12 shadow-[0_0_50px_rgba(0,0,0,0.5)] rgb-border">
-        {/* Animated Background Glow */}
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-amber-500/10 blur-[120px] rounded-full pointer-events-none animate-pulse"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#38bdf8]/10 blur-[120px] rounded-full pointer-events-none animate-pulse" style={{ animationDelay: '1s' }}></div>
+      {/* Modern Gaming Profile Card Based on New Screenshot */}
+      <div className="relative bg-[#0B1221] border border-white/10 rounded-[56px] p-8 pt-24 shadow-[0_40px_100px_rgba(0,0,0,0.8)]">
         
-        <div className="relative z-10 flex flex-col items-center">
-          {/* Elite Avatar with Neon Ring */}
-          <div className="relative mb-10 group cursor-pointer" onClick={() => document.getElementById('photo-upload')?.click()}>
-            <input id="photo-upload" type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-            <div className="absolute inset-0 bg-amber-500/20 blur-2xl rounded-full scale-110 group-hover:bg-amber-500/40 transition-all duration-700"></div>
-            <div className="relative w-40 h-40 rounded-full p-1.5 bg-gradient-to-tr from-amber-600 via-amber-400 to-amber-600 shadow-[0_0_30px_rgba(245,158,11,0.3)] group-hover:shadow-[0_0_50px_rgba(245,158,11,0.5)] transition-all duration-700">
-              <div className="w-full h-full rounded-full overflow-hidden bg-black border-4 border-[#0B1221] relative">
-                {isUploading ? (
-                  <div className="w-full h-full flex items-center justify-center bg-black/60">
-                    <Loader2 className="w-10 h-10 text-amber-500 animate-spin" />
-                  </div>
-                ) : (profileData.photoURL || user.photoURL) ? (
-                  <img src={profileData.photoURL || user.photoURL || ''} alt="Profile" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-zinc-900">
-                    <UserCircle className="w-20 h-20 text-zinc-700" />
-                  </div>
-                )}
-                
-                {/* Camera Overlay on Hover */}
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Camera className="w-10 h-10 text-white" />
-                </div>
+        {/* Floating Stars with Glow (as seen in image) */}
+        <div className="absolute top-20 -left-6 text-red-500/40 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse">★</div>
+        <div className="absolute top-40 -left-2 text-red-500/20 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-bounce text-xs" style={{ animationDelay: '1s' }}>★</div>
+        <div className="absolute top-10 -right-4 text-red-500/40 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse">★</div>
+        <div className="absolute top-32 -right-8 text-red-500/30 drop-shadow-[0_0_8px_rgba(239,68,68,0.6)] animate-bounce" style={{ animationDelay: '0.5s' }}>★</div>
 
-                {/* Edit Badge Trigger */}
-                <div className="absolute bottom-2 right-2 w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center border-4 border-[#0B1221] shadow-xl group-hover:scale-110 transition-transform">
-                  <Edit3 className="w-3 h-3 text-black" />
+        {/* Profile Picture Header Block */}
+        <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-48 flex flex-col items-center">
+          <div className="relative w-full aspect-square bg-gradient-to-br from-[#FF2D55] to-[#D4002D] rounded-[48px] shadow-[0_20px_40px_rgba(255,45,85,0.3)] p-1 flex items-center justify-center group overflow-visible">
+            <div className="relative w-[75%] aspect-square rounded-full border-4 border-black bg-zinc-900 overflow-hidden shadow-2xl">
+              {isUploading ? (
+                <div className="w-full h-full flex items-center justify-center bg-black/60">
+                  <Loader2 className="w-8 h-8 text-white animate-spin" />
                 </div>
-
-                {/* Scanline Effect */}
-                <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%] pointer-events-none opacity-30"></div>
+              ) : (profileData.photoURL || user.photoURL) ? (
+                <img src={profileData.photoURL || user.photoURL || ''} alt="Profile" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-zinc-700">
+                  <UserCircle className="w-12 h-12" />
+                </div>
+              )}
+              {/* Online Status Dot on Avatar */}
+              <div className="absolute bottom-[15%] right-[15%] w-3 h-3 bg-emerald-400 rounded-full border-2 border-black shadow-[0_0_10px_rgba(52,211,153,0.5)]"></div>
+              
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onClick={() => document.getElementById('photo-upload')?.click()}>
+                <Camera className="w-6 h-6 text-white" />
               </div>
             </div>
-            {/* Elite OVR Floating Badge */}
-            <motion.div 
-              initial={{ y: 0 }}
-              animate={{ y: [0, -5, 0] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute -bottom-2 right-4 bg-white text-black px-4 py-1.5 rounded-2xl text-[12px] font-black italic shadow-[0_10px_20px_rgba(0,0,0,0.4)] border border-white/20"
-            >
-              <span className="text-amber-600 mr-1">{profileData.ovr}</span> OVR
-            </motion.div>
+            
+            {/* Label below avatar - Only show if no photo exists */}
+            {!(profileData.photoURL || user.photoURL) && (
+              <div className="absolute bottom-10 text-[8px] font-black text-white/50 uppercase tracking-[0.2em] text-center leading-tight">
+                PLAYER PROFILE<br/>PICTURE
+              </div>
+            )}
+
+            {/* Cyan Ribbon Name Badge */}
+            <div className="absolute -bottom-4 w-[115%] h-11 bg-cyan-400 rounded-2xl flex items-center justify-center gap-2 shadow-[0_10px_20px_rgba(34,211,238,0.4)] border-b-4 border-cyan-500 overflow-hidden group/name px-2">
+               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-[shimmer_3s_infinite]"></div>
+               <span className="relative text-black font-black uppercase tracking-tighter text-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-[85%]">
+                 {profileData.gameName || user.displayName || 'LEGEND'}
+               </span>
+               <div className="relative w-4 h-4 bg-black rounded-full flex items-center justify-center flex-shrink-0">
+                 <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+               </div>
+            </div>
           </div>
+        </div>
+
+        {/* Card Body */}
+        <div className="mt-12 flex flex-col items-center space-y-8">
           
-          {/* Premium User Branding */}
-          <div className="text-center space-y-6">
-            <div className="space-y-2">
-              <div className="flex items-center justify-center gap-3 mb-1">
-                <Shield className="w-4 h-4 text-amber-500 fill-amber-500/20" />
-                <span className="text-[10px] font-black text-amber-500 uppercase tracking-[0.4em] italic">Elite Federation Athlete</span>
-                <Shield className="w-4 h-4 text-amber-500 fill-amber-500/20" />
-              </div>
-              <h2 className="text-4xl sm:text-[64px] font-black text-white uppercase italic leading-tight sm:leading-none tracking-tight sm:tracking-[-0.05em] drop-shadow-2xl px-4">
-                {profileData.gameName || user.displayName || 'LEGEND'}
-              </h2>
-            </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 px-4">
-            <div className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl backdrop-blur-md">
-              <Fingerprint className="w-4 h-4 text-zinc-500" />
-              <span className="text-[9px] sm:text-[11px] font-black text-zinc-400 uppercase tracking-widest italic shrink-0">UID:</span>
-              <span className="text-[9px] sm:text-[11px] font-mono font-black text-white break-all">{profileData.gameUid || '---'}</span>
-            </div>
-            <div className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl backdrop-blur-md">
-              <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-              <span className="text-[9px] sm:text-[11px] font-black text-white uppercase tracking-widest italic">Global Rank #1</span>
-            </div>
+          {/* Elite OVR Badge */}
+          <div className="bg-[#1A2233]/80 backdrop-blur-md px-6 py-2 rounded-2xl border border-white/5 flex items-center gap-2 shadow-inner group">
+             <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 group-hover:rotate-45 transition-transform" />
+             <span className="text-white font-black text-xs tracking-widest italic uppercase">
+               {profileData.ovr} OVR
+             </span>
           </div>
 
-            <div className="flex gap-4 justify-center pt-4">
-              <button 
-                onClick={() => setIsEditing(true)}
-                className="group relative px-10 py-5 bg-white text-black rounded-[24px] font-black text-[12px] uppercase tracking-[0.2em] italic transition-all active:scale-95 overflow-hidden"
+          {/* Info Sections */}
+          <div className="w-full space-y-6">
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between px-2">
+                <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest italic">GAME I'D NAME</span>
+                <span className="text-[8px] font-black text-indigo-500/60 uppercase tracking-widest italic">Active Tag</span>
+              </div>
+              <div 
+                onClick={() => copyToClipboard(profileData.gameName, 'Game Name')}
+                className="w-full h-16 bg-[#1A2233] border border-white/10 rounded-2xl flex items-center justify-between px-6 cursor-pointer group hover:border-amber-500/30 transition-all shadow-lg"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-amber-500 to-amber-300 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div className="relative flex items-center gap-3">
-                  <Edit3 className="w-4 h-4" />
-                  Synchronize Identity
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Bento Grid Stats Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Large Stat Box */}
-        <div className="md:col-span-2 relative overflow-hidden rounded-[48px] bg-[#111827] border border-white/5 p-10 group rgb-border">
-          <div className="absolute top-0 right-0 p-10 opacity-[0.03] group-hover:rotate-12 transition-transform duration-700">
-            {userData?.role === 'publisher' ? <Trophy className="w-40 h-40 text-amber-500" /> : <Trophy className="w-40 h-40 text-amber-500" />}
-          </div>
-          <h3 className="text-[11px] font-black text-amber-500 uppercase tracking-[0.4em] mb-12 italic">
-            {userData?.role === 'publisher' ? 'Publishing Analytics' : 'Arena Dominance'}
-          </h3>
-          <div className="grid grid-cols-2 gap-12">
-            <div className="space-y-2">
-              <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest italic">
-                {userData?.role === 'publisher' ? 'Arenas Hosted' : 'Tournament Victories'}
-              </p>
-              <div className="flex items-end gap-3">
-                <span className="text-[56px] font-black text-white leading-none italic">
-                  {userData?.role === 'publisher' ? publishedCount.toString().padStart(2, '0') : '08'}
-                </span>
-                <span className="text-[14px] font-black text-amber-500 uppercase italic pb-2">
-                  {userData?.role === 'publisher' ? 'Events' : 'Cups Won'}
-                </span>
+                <span className="text-sm font-black text-white italic tracking-wide">{profileData.gameName || '---'}</span>
+                <Copy className="w-4 h-4 text-zinc-600 group-hover:text-amber-500 transition-colors" />
               </div>
             </div>
-            <div className="space-y-2">
-              <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest italic">
-                {userData?.role === 'publisher' ? 'Host Reputation' : 'Win Probability'}
-              </p>
-              <div className="flex items-end gap-3">
-                <span className="text-[56px] font-black text-white leading-none italic">
-                  {userData?.role === 'publisher' ? '98' : '94'}
-                </span>
-                <span className="text-[14px] font-black text-[#38bdf8] uppercase italic pb-2">
-                  {userData?.role === 'publisher' ? 'Level' : '% Rate'}
-                </span>
+
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between px-2">
+                <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest italic">GAME I'D</span>
+                <span className="text-[8px] font-black text-zinc-500/40 uppercase tracking-widest italic">UID</span>
+              </div>
+              <div 
+                onClick={() => copyToClipboard(profileData.gameUid, 'Game ID')}
+                className="w-full h-16 bg-[#1A2233] border border-white/10 rounded-2xl flex items-center justify-between px-6 cursor-pointer group hover:border-[#38bdf8]/30 transition-all shadow-lg"
+              >
+                <span className="text-sm font-mono font-black text-white/80 tracking-[0.1em]">{profileData.gameUid || '---'}</span>
+                <Copy className="w-4 h-4 text-zinc-600 group-hover:text-[#38bdf8] transition-colors" />
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Vertical Stat Box */}
-        <div className="relative overflow-hidden rounded-[48px] bg-gradient-to-b from-amber-500 to-amber-600 p-10 flex flex-col justify-between group rgb-border">
-          <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:scale-125 transition-transform duration-700">
-            <Zap className="w-20 h-20 text-white fill-white" />
+          {/* New Tear-drop Social Icons */}
+          <div className="flex items-center justify-center gap-8 w-full py-4">
+            {[
+              { icon: Facebook, link: profileData.facebookLink, active: !!profileData.facebookLink },
+              { icon: MessageCircle, link: `https://wa.me/${profileData.phone}`, active: !!profileData.phone },
+              { icon: Send, link: profileData.messengerLink, active: !!profileData.messengerLink }
+            ].map((social, i) => (
+              <a 
+                key={i}
+                href={social.link}
+                target="_blank"
+                rel="noreferrer"
+                className="relative w-16 h-16 bg-gradient-to-br from-[#FF2D55] to-[#D4002D] rounded-t-[32px] rounded-br-[32px] rounded-bl-[4px] flex items-center justify-center shadow-[0_10px_20px_rgba(255,45,85,0.2)] hover:scale-110 active:scale-95 transition-all group"
+              >
+                <social.icon className="w-7 h-7 text-white fill-current" />
+                {/* Glowing status dot on icons */}
+                <div className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-black ${social.active ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-zinc-600'}`}></div>
+                {/* Red outer glow */}
+                <div className="absolute inset-0 bg-[#FF2D55]/20 blur-xl rounded-full -z-10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              </a>
+            ))}
           </div>
-          <h3 className="text-[11px] font-black text-black/50 uppercase tracking-[0.4em] italic">Current Tier</h3>
-          <div className="space-y-1">
-            <p className="text-[40px] font-black text-black uppercase italic leading-tight tracking-tighter">ELITE<br/>ARENA</p>
-            <p className="text-[10px] font-black text-black/60 uppercase tracking-widest italic">Division Alpha</p>
-          </div>
-        </div>
-      </div>
 
-      {/* Infrastructure & Security Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="rounded-[48px] bg-[#111827] border border-white/5 p-10 space-y-8 rgb-border">
-          <div className="flex items-center justify-between">
-            <h3 className="text-[11px] font-black text-[#38bdf8] uppercase tracking-[0.4em] italic">Neural Links</h3>
-            <div className="px-3 py-1 bg-[#38bdf8]/10 rounded-lg text-[9px] font-black text-[#38bdf8] italic uppercase">Secure</div>
-          </div>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-6 bg-white/[0.02] border border-white/5 rounded-[32px] group hover:bg-white/[0.04] transition-all">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-[#1877F2]/10 flex items-center justify-center border border-[#1877F2]/20">
-                  <Facebook className="w-5 h-5 text-[#1877F2]" />
-                </div>
-                <div>
-                  <p className="text-[11px] font-black text-white uppercase italic">Facebook Auth</p>
-                  <p className="text-[9px] font-bold text-zinc-600 uppercase italic">Primary Gateway</p>
-                </div>
-              </div>
-              <span className="text-[10px] font-black text-zinc-500 uppercase italic">{profileData.facebookLink ? 'Authorized' : 'Pending'}</span>
-            </div>
-            <div className="flex items-center justify-between p-6 bg-white/[0.02] border border-white/5 rounded-[32px] group hover:bg-white/[0.04] transition-all">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center border border-green-500/20">
-                  <Phone className="w-5 h-5 text-green-500" />
-                </div>
-                <div>
-                  <p className="text-[11px] font-black text-white uppercase italic">Mobile Sync</p>
-                  <p className="text-[9px] font-bold text-zinc-600 uppercase italic">Encrypted (Private)</p>
-                </div>
-              </div>
-              <span className="text-[10px] font-black text-zinc-500 font-mono italic">{profileData.phone ? `****${profileData.phone.slice(-4)}` : 'Restricted'}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-[48px] bg-[#111827] border border-white/5 p-10 flex flex-col justify-between group rgb-border">
-          <div className="space-y-2">
-            <h3 className="text-[11px] font-black text-red-500 uppercase tracking-[0.4em] italic">System Core</h3>
-            <p className="text-zinc-500 text-[13px] italic opacity-80 leading-relaxed">Manage your active arena credentials and force-terminate the current neural synchronization across all nodes.</p>
-          </div>
+          {/* Main Action Button */}
           <button 
-            onClick={logout}
-            className="group relative w-full py-6 bg-red-500/10 border border-red-500/20 rounded-[32px] overflow-hidden transition-all active:scale-95"
+            onClick={() => setIsEditing(true)}
+            className="w-full h-16 bg-gradient-to-r from-[#4A72FF] to-[#38bdf8] text-white rounded-3xl font-black text-sm uppercase tracking-wider italic shadow-[0_15px_30px_rgba(74,114,255,0.3)] hover:shadow-[0_20px_40px_rgba(74,114,255,0.4)] active:scale-[0.98] transition-all flex items-center justify-center gap-3 border-b-4 border-[#2D4599]"
           >
-            <div className="absolute inset-0 bg-red-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            <div className="relative flex items-center justify-center gap-3 text-red-500 group-hover:text-white font-black uppercase tracking-[0.2em] text-[11px] italic">
-              <LogOut className="w-5 h-5" />
-              Terminate Active Session
-            </div>
+            <UserCog className="w-5 h-5" />
+            Edit Profile Ditels
           </button>
         </div>
       </div>
+
+      <input id="photo-upload" type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+
+      {/* Logout Button directly below profile card */}
+      <button 
+        onClick={logout}
+        className="w-full py-5 bg-red-600/10 hover:bg-red-600/20 text-red-500 rounded-[32px] border border-red-500/20 font-black text-sm uppercase tracking-[0.3em] italic transition-all flex items-center justify-center gap-3 shadow-lg"
+      >
+        <LogOut className="w-5 h-5" />
+        Terminate Active Session
+      </button>
+
+      {/* Player Career Statistics Grid */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-[#111827] border border-white/5 rounded-[32px] p-6 text-center rgb-border">
+          <p className="text-[9px] font-black text-zinc-600 uppercase italic tracking-widest mb-2">Played</p>
+          <span className="text-2xl font-black text-white italic">{matchStats.played}</span>
+        </div>
+        <div className="bg-[#111827] border border-white/5 rounded-[32px] p-6 text-center rgb-border">
+          <p className="text-[9px] font-black text-emerald-500 uppercase italic tracking-widest mb-2">Wins</p>
+          <span className="text-2xl font-black text-white italic">{matchStats.won}</span>
+        </div>
+        <div className="bg-[#111827] border border-white/5 rounded-[32px] p-6 text-center rgb-border">
+          <p className="text-[9px] font-black text-amber-500 uppercase italic tracking-widest mb-2">Win Rate</p>
+          <span className="text-2xl font-black text-white italic">
+            {matchStats.played > 0 ? Math.round((matchStats.won / matchStats.played) * 100) : 0}%
+          </span>
+        </div>
+      </div>
+
+      {/* Events Hosted (For Publishers) */}
+      {userData?.role === 'publisher' && (
+        <div className="bg-[#111827] border border-white/5 rounded-[32px] p-6 text-center rgb-border">
+          <p className="text-[9px] font-black text-zinc-600 uppercase italic tracking-widest mb-1">Total Arenas Hosted</p>
+          <span className="text-3xl font-black text-white italic">{publishedCount}</span>
+        </div>
+      )}
+
+      {/* Admin Section remains at bottom */}
+      {isAdmin && (
+        <div className="bg-black/40 border border-white/5 rounded-[40px] p-10 flex flex-col md:flex-row items-center justify-between gap-8 group">
+          <div className="flex items-center gap-6">
+            <div className="w-16 h-16 bg-white/5 rounded-[24px] flex items-center justify-center border border-white/10 group-hover:border-amber-500/30 transition-all">
+              <Shield className="w-8 h-8 text-amber-500" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-black text-white uppercase italic leading-none">Command Broadcast</h3>
+              <p className="text-[9px] font-black text-amber-500 uppercase tracking-[0.3em] mt-1 italic">Level 5 Clearance Required</p>
+            </div>
+          </div>
+          <div className="relative z-10 w-full md:w-auto">
+            <AdminNotificationManager />
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal remains similar but with messenger field */}
 
       {/* Publisher: My Tournaments Section */}
         {userData?.role === 'publisher' && myTournaments.length > 0 && (
@@ -566,7 +600,11 @@ export function Profile({ onSelectTournament }: ProfileProps) {
                   <input type="url" value={profileData.facebookLink} onChange={e => setProfileData({...profileData, facebookLink: e.target.value})} className="w-full h-14 px-6 bg-black/20 border border-white/5 rounded-2xl font-black text-white italic outline-none focus:ring-1 focus:ring-[#38bdf8]" placeholder="https://facebook.com/..." />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-green-500 uppercase tracking-widest px-2 italic">Mobile Number (Private)</label>
+                  <label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest px-2 italic">Messenger Link</label>
+                  <input type="url" value={profileData.messengerLink} onChange={e => setProfileData({...profileData, messengerLink: e.target.value})} className="w-full h-14 px-6 bg-black/20 border border-white/5 rounded-2xl font-black text-white italic outline-none focus:ring-1 focus:ring-indigo-500" placeholder="https://m.me/..." />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-green-500 uppercase tracking-widest px-2 italic">WhatsApp Number</label>
                   <input type="tel" value={profileData.phone} onChange={e => setProfileData({...profileData, phone: e.target.value})} className="w-full h-14 px-6 bg-black/20 border border-white/5 rounded-2xl font-black text-white italic outline-none focus:ring-1 focus:ring-green-500" />
                 </div>
                 <div className="space-y-2 p-6 bg-red-500/5 rounded-[28px] border border-red-500/10">
