@@ -40,6 +40,18 @@ jobs:
           npx cap add android
         fi
 
+    - name: Apply App Icon to Android
+      run: |
+        if [ -d "android/app/src/main/res" ]; then
+          for mipmap in android/app/src/main/res/mipmap-*; do
+            if [ -d "$mipmap" ]; then
+              cp public/icon.png "$mipmap/ic_launcher.png" || true
+              cp public/icon.png "$mipmap/ic_launcher_round.png" || true
+              cp public/icon.png "$mipmap/ic_launcher_foreground.png" || true
+            fi
+          done
+        fi
+
     - name: Sync Capacitor
       run: npx cap sync
 
