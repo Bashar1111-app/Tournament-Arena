@@ -134,7 +134,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
     const joinedQ = query(collectionGroup(db, 'participants'), where('userId', '==', user.uid));
     joinedUnsubscribe = onSnapshot(joinedQ, (joinedSnapshot) => {
       const participantDocs = joinedSnapshot.docs;
-      const tournamentIds = Array.from(new Set(participantDocs.map(doc => doc.ref.parent.parent?.id).filter(id => !!id)));
+      const tournamentIds = Array.from(new Set(participantDocs.map(doc => doc.ref.parent.parent?.id).filter(id => !!id))) as string[];
       const myParticipantIds = participantDocs.map(doc => doc.id);
       
       // Calculate Match Stats across joined tournaments
@@ -143,7 +143,7 @@ export function Profile({ onSelectTournament }: ProfileProps) {
         const unsubscribers: (() => void)[] = [];
         const tournamentMatches: Record<string, any[]> = {};
 
-        tournamentIds.forEach(tId => {
+        tournamentIds.forEach((tId: string) => {
           const q = query(collection(db, 'tournaments', tId, 'matches'), where('status', '==', 'completed'));
           const unsub = onSnapshot(q, (snapshot) => {
             tournamentMatches[tId] = snapshot.docs.map(doc => doc.data());

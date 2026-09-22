@@ -453,12 +453,11 @@ export function Dashboard({ onSelectTournament }: DashboardProps) {
 
         {reportingMatch && (
           <ResultReportModal
-            isOpen={!!reportingMatch}
             onClose={() => setReportingMatch(null)}
             tournamentId={reportingMatch.tournamentId}
             matchId={reportingMatch.matchId}
-            homeName={reportingMatch.homeName}
-            awayName={reportingMatch.awayName}
+            homePlayerName={reportingMatch.homeName}
+            awayPlayerName={reportingMatch.awayName}
           />
         )}
       </AnimatePresence>

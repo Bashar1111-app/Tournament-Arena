@@ -72,9 +72,6 @@ app.post('/api/analyze-result', async (req, res) => {
           text: prompt
         }
       ],
-      generation_config: {
-        temperature: 0.1
-      }
     });
 
     let fullOutput = "";

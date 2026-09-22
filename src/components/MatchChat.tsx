@@ -19,7 +19,7 @@ interface MatchChatProps {
   onClose: () => void;
   homePlayerName: string;
   awayPlayerName: string;
-  participants: any[];
+  participants?: any[];
 }
 
 export const MatchChat: React.FC<MatchChatProps> = ({ 
