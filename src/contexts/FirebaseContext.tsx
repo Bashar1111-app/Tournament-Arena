@@ -1,7 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, getAdditionalUserInfo } from 'firebase/auth';
+import { User, onAuthStateChanged, signInWithPopup, signInWithCredential, GoogleAuthProvider, signOut, getAdditionalUserInfo } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import { Capacitor } from '@capacitor/core';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
+import firebaseConfig from '../../firebase-applet-config.json';
 
 interface FirebaseContextType {
   user: User | null;
@@ -21,6 +24,14 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      GoogleAuth.initialize({
+        clientId: firebaseConfig.oAuthClientId,
+        scopes: ['profile', 'email'],
+        grantOfflineAccess: true,
+      }).catch(err => console.warn('GoogleAuth init error:', err));
+    }
+
     let userUnsubscribe: (() => void) | null = null;
     let adminUnsubscribe: (() => void) | null = null;
 
@@ -81,11 +92,27 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     if (isLoggingIn) return;
     setIsLoggingIn(true);
 
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-
     try {
-      const result = await signInWithPopup(auth, provider);
+      let result;
+
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const googleUser = await GoogleAuth.signIn();
+          const idToken = googleUser.authentication.idToken;
+          const credential = GoogleAuthProvider.credential(idToken);
+          result = await signInWithCredential(auth, credential);
+        } catch (nativeErr: any) {
+          console.warn('Native GoogleAuth failed, falling back to popup:', nativeErr);
+          const provider = new GoogleAuthProvider();
+          provider.setCustomParameters({ prompt: 'select_account' });
+          result = await signInWithPopup(auth, provider);
+        }
+      } else {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        result = await signInWithPopup(auth, provider);
+      }
+
       const user = result.user;
       const additionalInfo = getAdditionalUserInfo(result);
       
@@ -103,8 +130,8 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       if (error.code === 'auth/cancelled-popup-request') {
         console.warn('Login request was cancelled by a newer request.');
-      } else if (error.code === 'auth/popup-closed-by-user') {
-        console.log('Login popup closed by user.');
+      } else if (error.code === 'auth/popup-closed-by-user' || error?.message?.includes('CANCELED') || error?.code === '12501') {
+        console.log('Login cancelled by user.');
       } else if (error.code === 'auth/unauthorized-domain') {
         alert('Login Error: Domain not authorized. Please make sure "localhost" is added to Firebase Console -> Authentication -> Settings -> Authorized Domains.');
       } else {
@@ -117,6 +144,13 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    try {
+      if (Capacitor.isNativePlatform()) {
+        await GoogleAuth.signOut().catch(() => {});
+      }
+    } catch (err) {
+      console.warn('GoogleAuth signOut error:', err);
+    }
     await signOut(auth);
   };
 
@@ -134,5 +168,6 @@ export function useFirebase() {
   }
   return context;
 }
+
 
 
