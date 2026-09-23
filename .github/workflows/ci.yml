@@ -43,11 +43,15 @@ jobs:
     - name: Apply App Icon to Android
       run: |
         if [ -d "android/app/src/main/res" ]; then
+          # Remove adaptive XML icons in anydpi-v26 that conflict with PNG icons
+          rm -rf android/app/src/main/res/mipmap-anydpi-v26
+          
+          # Replace icons in all standard density mipmap folders
           for mipmap in android/app/src/main/res/mipmap-*; do
             if [ -d "$mipmap" ]; then
-              cp public/icon.png "$mipmap/ic_launcher.png" || true
-              cp public/icon.png "$mipmap/ic_launcher_round.png" || true
-              cp public/icon.png "$mipmap/ic_launcher_foreground.png" || true
+              cp public/icon.png "$mipmap/ic_launcher.png"
+              cp public/icon.png "$mipmap/ic_launcher_round.png"
+              cp public/icon.png "$mipmap/ic_launcher_foreground.png"
             fi
           done
         fi
