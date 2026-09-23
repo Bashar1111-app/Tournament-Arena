@@ -26,19 +26,19 @@ export default defineConfig(() => {
           scope: '/',
           icons: [
             {
-              src: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=192&h=192&auto=format&fit=crop',
+              src: '/icon.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=512&h=512&auto=format&fit=crop',
+              src: '/icon-512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=512&h=512&auto=format&fit=crop',
+              src: '/icon-512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable'

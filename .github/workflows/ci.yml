@@ -39,6 +39,8 @@ jobs:
         if [ ! -d "android" ]; then
           npx cap add android
         fi
+        # Copy google-services.json to the correct location
+        cp google-services.json android/app/google-services.json
 
     - name: Apply App Icon to Android
       run: |
@@ -61,7 +63,10 @@ jobs:
         npx cap sync
         # Inject Google Client ID into Android strings.xml for the native plugin
         if [ -d "android/app/src/main/res/values" ]; then
-          sed -i 's/<\/resources>/    <string name="server_client_id">1056646427549-alg436s1bgkjagkpelpmsqc2l2upgq31.apps.googleusercontent.com<\/string>\n<\/resources>/' android/app/src/main/res/values/strings.xml
+          # Ensure strings.xml has the server_client_id
+          if ! grep -q "server_client_id" android/app/src/main/res/values/strings.xml; then
+            sed -i 's/<\/resources>/    <string name="server_client_id">1056646427549-alg436s1bgkjagkpelpmsqc2l2upgq31.apps.googleusercontent.com<\/string>\n<\/resources>/' android/app/src/main/res/values/strings.xml
+          fi
         fi
 
     - name: Build APK (Debug)

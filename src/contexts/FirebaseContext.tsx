@@ -145,7 +145,8 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       } else if (error.code === 'auth/unauthorized-domain') {
         alert('Domain Error: Please add "localhost" to Firebase Console -> Auth -> Settings -> Authorized Domains.');
       } else {
-        alert(`Login failed: ${error.message || 'Unknown error'}. 
+        const errorMessage = error.message || JSON.stringify(error);
+        alert(`Login failed: ${errorMessage}. 
         
 Note: If you are using the APK, ensure your SHA-1 certificate fingerprint is registered in Firebase Console.`);
       }
