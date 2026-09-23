@@ -40,48 +40,48 @@ jobs:
           npx cap add android
         fi
         
-        # Create google-services.json directly in the CI runner (No leading spaces)
+        # Create google-services.json directly in the CI runner
         cat <<EOF > android/app/google-services.json
-{
-  "project_info": {
-    "project_number": "1056646427549",
-    "project_id": "fc-tournament-816ea",
-    "storage_bucket": "fc-tournament-816ea.firebasestorage.app"
-  },
-  "client": [
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:1056646427549:android:f58b0934e8f668efec7574",
-        "android_client_info": {
-          "package_name": "com.sperkplay.fctournament"
-        }
-      },
-      "oauth_client": [
         {
-          "client_id": "1056646427549-alg436s1bgkjagkpelpmsqc2l2upgq31.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyCB3rXNmkJXxP4GgjTw0Vt5_G2tcwouWK8"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
+          "project_info": {
+            "project_number": "1056646427549",
+            "project_id": "fc-tournament-816ea",
+            "storage_bucket": "fc-tournament-816ea.firebasestorage.app"
+          },
+          "client": [
             {
-              "client_id": "1056646427549-alg436s1bgkjagkpelpmsqc2l2upgq31.apps.googleusercontent.com",
-              "client_type": 3
+              "client_info": {
+                "mobilesdk_app_id": "1:1056646427549:android:f58b0934e8f668efec7574",
+                "android_client_info": {
+                  "package_name": "com.sperkplay.fctournament"
+                }
+              },
+              "oauth_client": [
+                {
+                  "client_id": "1056646427549-alg436s1bgkjagkpelpmsqc2l2upgq31.apps.googleusercontent.com",
+                  "client_type": 3
+                }
+              ],
+              "api_key": [
+                {
+                  "current_key": "AIzaSyCB3rXNmkJXxP4GgjTw0Vt5_G2tcwouWK8"
+                }
+              ],
+              "services": {
+                "appinvite_service": {
+                  "other_platform_oauth_client": [
+                    {
+                      "client_id": "1056646427549-alg436s1bgkjagkpelpmsqc2l2upgq31.apps.googleusercontent.com",
+                      "client_type": 3
+                    }
+                  ]
+                }
+              }
             }
-          ]
+          ],
+          "configuration_version": "1"
         }
-      }
-    }
-  ],
-  "configuration_version": "1"
-}
-EOF
+        EOF
 
     - name: Apply App Icon to Android
       run: |
