@@ -1,5 +1,16 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithPopup, signInWithCredential, GoogleAuthProvider, signOut, getAdditionalUserInfo } from 'firebase/auth';
+import { 
+  User, 
+  onAuthStateChanged, 
+  signInWithPopup, 
+  signInWithCredential, 
+  GoogleAuthProvider, 
+  signOut, 
+  getAdditionalUserInfo,
+  setPersistence,
+  indexedDBLocalPersistence,
+  browserLocalPersistence
+} from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Capacitor } from '@capacitor/core';
@@ -24,6 +35,10 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    // Set persistence for Capacitor
+    const persistence = Capacitor.isNativePlatform() ? indexedDBLocalPersistence : browserLocalPersistence;
+    setPersistence(auth, persistence).catch(err => console.error('Persistence error:', err));
+
     if (Capacitor.isNativePlatform()) {
       GoogleAuth.initialize({
         clientId: firebaseConfig.oAuthClientId,
@@ -38,7 +53,6 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     const authUnsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       
-      // Clear previous listeners
       if (userUnsubscribe) {
         userUnsubscribe();
         userUnsubscribe = null;
@@ -49,7 +63,6 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (user) {
-        // 1. User Profile Listener
         userUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (snap) => {
           if (snap.exists()) {
             setUserData(snap.data());
@@ -62,7 +75,6 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
         });
 
-        // 2. Admin Status Listener
         if (user.email === 'sperkplay@gmail.com') {
           setIsAdmin(true);
         } else {
@@ -96,17 +108,15 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       let result;
 
       if (Capacitor.isNativePlatform()) {
-        try {
-          const googleUser = await GoogleAuth.signIn();
-          const idToken = googleUser.authentication.idToken;
-          const credential = GoogleAuthProvider.credential(idToken);
-          result = await signInWithCredential(auth, credential);
-        } catch (nativeErr: any) {
-          console.warn('Native GoogleAuth failed, falling back to popup:', nativeErr);
-          const provider = new GoogleAuthProvider();
-          provider.setCustomParameters({ prompt: 'select_account' });
-          result = await signInWithPopup(auth, provider);
+        console.log('Starting native Google Sign-In...');
+        const googleUser = await GoogleAuth.signIn();
+        
+        if (!googleUser.authentication?.idToken) {
+          throw new Error('No ID Token received from Google. Please ensure your SHA-1 fingerprint is added to Firebase Console.');
         }
+
+        const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
+        result = await signInWithCredential(auth, credential);
       } else {
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
@@ -128,15 +138,16 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
         });
       }
     } catch (error: any) {
-      if (error.code === 'auth/cancelled-popup-request') {
-        console.warn('Login request was cancelled by a newer request.');
-      } else if (error.code === 'auth/popup-closed-by-user' || error?.message?.includes('CANCELED') || error?.code === '12501') {
-        console.log('Login cancelled by user.');
+      console.error('Login error details:', error);
+      
+      if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user' || error?.message?.includes('CANCELED') || error?.code === '12501') {
+        // User cancelled, no alert needed
       } else if (error.code === 'auth/unauthorized-domain') {
-        alert('Login Error: Domain not authorized. Please make sure "localhost" is added to Firebase Console -> Authentication -> Settings -> Authorized Domains.');
+        alert('Domain Error: Please add "localhost" to Firebase Console -> Auth -> Settings -> Authorized Domains.');
       } else {
-        console.error('Login failed', error);
-        alert(`Login failed: ${error.message || error}`);
+        alert(`Login failed: ${error.message || 'Unknown error'}. 
+        
+Note: If you are using the APK, ensure your SHA-1 certificate fingerprint is registered in Firebase Console.`);
       }
     } finally {
       setIsLoggingIn(false);
@@ -168,6 +179,7 @@ export function useFirebase() {
   }
   return context;
 }
+
 
 
 

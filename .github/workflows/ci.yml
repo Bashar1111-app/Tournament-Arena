@@ -57,13 +57,22 @@ jobs:
         fi
 
     - name: Sync Capacitor
-      run: npx cap sync
+      run: |
+        npx cap sync
+        # Inject Google Client ID into Android strings.xml for the native plugin
+        if [ -d "android/app/src/main/res/values" ]; then
+          sed -i 's/<\/resources>/    <string name="server_client_id">1056646427549-alg436s1bgkjagkpelpmsqc2l2upgq31.apps.googleusercontent.com<\/string>\n<\/resources>/' android/app/src/main/res/values/strings.xml
+        fi
 
     - name: Build APK (Debug)
       run: |
         cd android
         chmod +x gradlew
         ./gradlew assembleDebug --no-daemon
+        
+        echo "--- DEBUG SHA-1 FINGERPRINT ---"
+        keytool -list -v -keystore app/debug.keystore -alias androiddebugkey -storepass android -keypass android | grep SHA1 || echo "Could not find SHA1"
+        echo "-------------------------------"
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
