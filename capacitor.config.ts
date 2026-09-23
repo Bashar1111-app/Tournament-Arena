@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.fcarena.vs',
+  appId: 'com.sperkplay.fctournament',
   appName: 'FC Arena VS',
   webDir: 'dist',
   server: {

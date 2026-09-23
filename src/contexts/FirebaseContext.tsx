@@ -41,9 +41,8 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
 
     if (Capacitor.isNativePlatform()) {
       GoogleAuth.initialize({
-        clientId: firebaseConfig.oAuthClientId,
+        clientId: '1056646427549-alg436s1bgkjagkpelpmsqc2l2upgq31.apps.googleusercontent.com',
         scopes: ['profile', 'email'],
-        grantOfflineAccess: true,
       }).catch(err => console.warn('GoogleAuth init error:', err));
     }
 
