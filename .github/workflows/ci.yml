@@ -70,9 +70,9 @@ jobs:
         chmod +x gradlew
         ./gradlew assembleDebug --no-daemon
         
-        echo "--- DEBUG SHA-1 FINGERPRINT ---"
-        keytool -list -v -keystore app/debug.keystore -alias androiddebugkey -storepass android -keypass android | grep SHA1 || echo "Could not find SHA1"
-        echo "-------------------------------"
+        echo "--- DEBUG SIGNING REPORT (Find SHA1 here) ---"
+        ./gradlew signingReport --no-daemon | grep -A 5 "Variant: debug" || echo "Could not generate signing report"
+        echo "--------------------------------------------"
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
