@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, getAdditionalUserInfo } from 'firebase/auth';
+import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, getAdditionalUserInfo } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
-import { Capacitor } from '@capacitor/core';
 
 interface FirebaseContextType {
   user: User | null;
@@ -22,27 +21,6 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    // Handle redirect sign-in result (especially for mobile Capacitor apps)
-    getRedirectResult(auth).then(async (result) => {
-      if (result) {
-        const user = result.user;
-        const additionalInfo = getAdditionalUserInfo(result);
-        if (additionalInfo?.isNewUser) {
-          const userRef = doc(db, 'users', user.uid);
-          await setDoc(userRef, {
-            email: user.email,
-            gameName: user.displayName || 'LEGEND',
-            ovr: '60',
-            role: 'player',
-            photoURL: user.photoURL,
-            createdAt: serverTimestamp()
-          });
-        }
-      }
-    }).catch((error) => {
-      console.error('Redirect sign in error:', error);
-    });
-
     let userUnsubscribe: (() => void) | null = null;
     let adminUnsubscribe: (() => void) | null = null;
 
@@ -64,11 +42,10 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
         userUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (snap) => {
           if (snap.exists()) {
             setUserData(snap.data());
-            setLoading(false);
           } else {
             setUserData(null);
-            setLoading(false);
           }
+          setLoading(false);
         }, (err) => {
           console.error('User data listener error:', err);
           setLoading(false);
@@ -108,44 +85,31 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     provider.setCustomParameters({ prompt: 'select_account' });
 
     try {
-      if (Capacitor.isNativePlatform()) {
-        // On Native mobile apps, use redirect flow which handles authorized domains cleanly
-        await signInWithRedirect(auth, provider);
-      } else {
-        try {
-          const result = await signInWithPopup(auth, provider);
-          const user = result.user;
-          const additionalInfo = getAdditionalUserInfo(result);
-          
-          if (additionalInfo?.isNewUser) {
-            const userRef = doc(db, 'users', user.uid);
-            await setDoc(userRef, {
-              email: user.email,
-              gameName: user.displayName || 'LEGEND',
-              ovr: '60',
-              role: role,
-              photoURL: user.photoURL,
-              createdAt: serverTimestamp()
-            });
-          }
-        } catch (popupError: any) {
-          if (popupError.code === 'auth/unauthorized-domain' || popupError.code === 'auth/popup-blocked') {
-            await signInWithRedirect(auth, provider);
-          } else {
-            throw popupError;
-          }
-        }
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      const additionalInfo = getAdditionalUserInfo(result);
+      
+      if (additionalInfo?.isNewUser) {
+        const userRef = doc(db, 'users', user.uid);
+        await setDoc(userRef, {
+          email: user.email,
+          gameName: user.displayName || 'LEGEND',
+          ovr: '60',
+          role: role,
+          photoURL: user.photoURL,
+          createdAt: serverTimestamp()
+        });
       }
     } catch (error: any) {
       if (error.code === 'auth/cancelled-popup-request') {
         console.warn('Login request was cancelled by a newer request.');
-      } else if (error.code !== 'auth/popup-closed-by-user') {
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        console.log('Login popup closed by user.');
+      } else if (error.code === 'auth/unauthorized-domain') {
+        alert('Login Error: Domain not authorized. Please make sure "localhost" is added to Firebase Console -> Authentication -> Settings -> Authorized Domains.');
+      } else {
         console.error('Login failed', error);
-        if (error.code === 'auth/unauthorized-domain') {
-          alert('Login Error: Domain not authorized. Please ensure "localhost" is added to Firebase Console -> Authentication -> Settings -> Authorized Domains.');
-        } else {
-          alert(`Login failed: ${error.message}`);
-        }
+        alert(`Login failed: ${error.message || error}`);
       }
     } finally {
       setIsLoggingIn(false);
@@ -170,4 +134,5 @@ export function useFirebase() {
   }
   return context;
 }
+
 
